@@ -1,0 +1,1 @@
+{"keys":[{"alg":"PS256","kty":"RSA","n":"AAAA","e":"AAAA","kid":"victim_kid","kid":"attacker_kid"}]}
