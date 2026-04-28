@@ -55,11 +55,25 @@ Each divergence is written to `reports/<sha1-of-input>.json` with the full per-p
 
 ## Status
 
-**Milestone 1 (this commit):** Python and Go runners on JWK Set converter.
+**Milestone 1 — done 2026-04-28:** Python and Go runners on JWK Set converter.
 
-**Milestone 2 (planned):** Java runner via subprocess wrapper around `JwkSetConverter`. C++ runner via Bazel-built CLI.
+End-to-end validated on Linux + Windows: 11/16 seed-corpus inputs flagged as cross-port divergences (`py:REJECT_OTHER` vs `go:REJECT_TINK`). Sample report row:
 
-**Milestone 3 (planned):** Add proto Keyset deserialization surface; structured corpus mining via libFuzzer + atheris.
+```
+DIVERGENCE  01_alg_int.json   -> py:REJECT_OTHER (AttributeError)  / go:REJECT_TINK ("alg" is not a string)
+DIVERGENCE  02_x_int.json     -> py:REJECT_OTHER (AttributeError)  / go:REJECT_TINK ("x" is not a string)
+DIVERGENCE  06_kid_int.json   -> py:REJECT_OTHER (TypeError)        / go:REJECT_TINK ("kid" is not a string)
+DIVERGENCE  11_keys_int.json  -> py:REJECT_OTHER (TypeError)        / go:REJECT_TINK ("keys" is not a list)
+DIVERGENCE  14_keys_array_of_int.json -> py:REJECT_OTHER (AttributeError) / go:REJECT_TINK
+agree       09_no_keys.json   -> py:REJECT_TINK / go:REJECT_TINK
+agree       16_valid_es256_baseline.json -> py:ACCEPT / go:ACCEPT
+```
+
+The seed-corpus alone matches the bug class that was filed via Google OSS VRP (tracker `5332419769532416`, tink-java JwkSetConverter port-regression).
+
+**Milestone 2 — planned:** Java runner via subprocess wrapper around `JwkSetConverter`. C++ runner via Bazel-built CLI.
+
+**Milestone 3 — planned:** Add proto Keyset deserialization surface; structured corpus mining via libFuzzer + atheris.
 
 ## License
 
