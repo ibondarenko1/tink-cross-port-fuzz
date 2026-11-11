@@ -1,4 +1,4 @@
-.......# tink-cross-port-fuzz
+........# tink-cross-port-fuzz
 
 A differential fuzzer for [Google Tink](https://github.com/tink-crypto) that feeds the **same input** to multiple language ports of the Tink crypto library and reports any **divergence** in acceptance, error class, or returned key shape.
 
