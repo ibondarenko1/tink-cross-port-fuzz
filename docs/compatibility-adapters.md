@@ -1,20 +1,24 @@
-# Compatibility adapter contract
+# Compatibility adapters
 
-The release CLI reads its signed fixtures from `tink_compat/data/vectors.json`. The ES256 signature and public coordinates in the first fixture come from RFC 7515 Appendix A.3. The two rotation messages are signed with different P-256 test keys and refer to an example issuer. Only the public JWKs and already-signed messages are distributed. [Fixtures](../tink_compat/data/vectors.json) · [RFC 7515](https://www.rfc-editor.org/rfc/rfc7515.html#appendix-A.3)
+The CLI sends one UTF-8 JSON object to an adapter and reads one object from stdout. The adapter returns its loaded Tink package version and runtime. A missing version, version mismatch, duplicate result ID or setup failure makes the affected measurements incomplete.
 
-An adapter reads one UTF-8 JSON object on stdin, writes one JSON object on stdout and exits. A successful response includes the loaded Tink package `version` and a `runtime` string. The CLI compares the reported version with the profile. A version mismatch or setup failure makes the affected checks incomplete.
-
-| Operation | Request | Response |
+| Operation | Request | Result |
 | --- | --- | --- |
-| `publish` | `sets` maps the names `rfc`, `initial`, `overlap` and `retired` to public JWK Sets | `sets` contains each named public set after import and export through the publisher's Tink API |
-| `verify` | `checks` is a list of objects containing `id`, `jwks`, `compact`, `issuer` and `now` (Unix seconds) | `results` contains one object per requested `id`, with `outcome` and an optional diagnostic `detail` |
+| `publish` | `sets` maps names to public JWK Sets | Each set after import and export through Tink Python |
+| `verify` | `checks` contains one entry per `id`, with `jwks`, `compact`, `issuer`, `now` in Unix seconds and optional `audience` | One `verified`, `rejected` or `error` outcome per ID |
 
-A verifier imports the supplied public set, constructs the Tink verification primitive, sets the expected issuer and verification clock, and verifies the compact signature. It returns `verified` for success, `rejected` for a verification decision, and `error` if it could not perform verification. Setup errors cannot satisfy an expected rejection. Every requested ID must occur exactly once in the response.
+The verifier imports each set, constructs a verification primitive and supplies the expected issuer, time and optional audience to the Tink validator. An expected rejection counts only when the library actually performed verification. The same signed RS256 fixture is checked with two expected audiences. [Fixtures](../tink_compat/data/vectors.json) · [RFC 7515 test signatures](https://www.rfc-editor.org/rfc/rfc7515.html#appendix-A)
 
-To contribute a package version, add it to the supported versions, supply its dependency lock, and run the release profile with the existing signed fixtures. Include the JSON and Markdown reports when proposing a change to expected behavior. [Example profile](../tink_compat/data/profile.json) · [Published report](https://ibondarenko1.github.io/tink-cross-port-fuzz/report.json)
+## Contribute a version
 
-## Building the release downloads
+1. Add the release and its upstream source to the [catalog](../tink_compat/data/catalog.json). Commit the Python requirements or the Go module and checksums for the selected version. Java uses the Tink Maven coordinate and the shared runner POM.
+2. Update the candidate in the [reference profile](../tink_compat/data/profile.json). Keep previous entries so users can still select earlier releases.
+3. Run `python -m pytest -q` and `python -m tink_compat check --out report`. Inspect the reported package versions, both mixed deployments and the Python controls. A working build alone does not establish interoperability.
 
-The compatibility workflow builds a source distribution, builds the wheel from that distribution, and matches both to the measured fixtures and revision. Its `release-assets` artifact contains the wheel, source distribution, JSON, Markdown and `SHA256SUMS.txt`. For a release, take this artifact from the passing run on the version tag.
+A new scenario needs a public fixture, a fixed expected result, stable row IDs and an independent case in the release acceptance check. Include only public keys and signed test messages. [Release contract](../tools/release_contract.py)
 
-Publishing those files in GitHub Releases triggers two independent checks. One installs the wheel and runs the tagged action in fresh environments. The other verifies the report against the release checksums and tag, then updates the public results page. [Compatibility workflow](../.github/workflows/compatibility.yml) · [Distribution checks](../.github/workflows/release-smoke.yml)
+## Release a version
+
+The compatibility workflow builds a wheel from the sdist, compares it with the source and checks the complete case inventory against the measured report. The `release-assets` artifact contains the wheel, sdist, JSON, Markdown and SHA-256 manifest.
+
+Bump the distribution version and the external Action tag in both the consumer example and the release smoke workflow. Push the matching tag and wait for the tagged compatibility build and the two independent consumer jobs. Use the assets from that tag's passing run to create the GitHub release. Publication checks the publicly downloaded wheel and deploys a checksum-verified page for each release. [Build workflow](../.github/workflows/compatibility.yml) · [Public installation checks](../.github/workflows/release-smoke.yml) · [Versioned results](https://ibondarenko1.github.io/tink-cross-port-fuzz/)

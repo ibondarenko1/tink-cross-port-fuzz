@@ -22,6 +22,7 @@ import time
 from typing import Any, Callable, Mapping, Sequence
 
 from . import __version__
+from .decision import build_decision
 
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent
@@ -206,6 +207,68 @@ def _validate_rfc(vectors: Mapping[str, Any]) -> dict[str, Any]:
     return {"jwks": jwks, "compact": compact, "issuer": issuer, "now": now}
 
 
+def _validate_rsa(vectors: Mapping[str, Any], rfc: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Validate the optional fixed RS256 audience vector.
+
+    The vector carries only public JWK material and a pre-signed compact token.
+    ``state`` is accepted either as a JWK Set or as an object containing a
+    ``keys`` member so the fixture remains easy to inspect and version.
+    """
+
+    raw = vectors.get("rsa")
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ValueError("vectors.rsa must be an object")
+    state = raw.get("state", raw.get("jwks"))
+    jwks = _jwks(state, "vectors.rsa.state")
+    token = raw.get("token", raw.get("compact"))
+    audience = raw.get("audience")
+    other_audience = raw.get("other_audience")
+    issuer = raw.get("issuer", rfc["issuer"])
+    now = raw.get("now", rfc["now"])
+    if not isinstance(token, str) or token.count(".") != 2:
+        raise ValueError("vectors.rsa.token must be a compact JWT")
+    if not isinstance(audience, str) or not audience:
+        raise ValueError("vectors.rsa.audience must be a non-empty string")
+    if not isinstance(other_audience, str) or not other_audience or other_audience == audience:
+        raise ValueError("vectors.rsa.other_audience must differ from audience")
+    if not isinstance(issuer, str) or not issuer:
+        raise ValueError("vectors.rsa.issuer must be a non-empty string")
+    if not isinstance(now, int) or isinstance(now, bool):
+        raise ValueError("vectors.rsa.now must be an integer")
+    return {
+        "jwks": jwks,
+        "compact": token,
+        "issuer": issuer,
+        "now": now,
+        "audience": audience,
+        "other_audience": other_audience,
+        "source": raw.get("source"),
+    }
+
+
+def _validate_rfc_rsa(vectors: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Validate an optional public RFC 7515 A.2 RS256 vector."""
+
+    raw = vectors.get("rfc_rsa")
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ValueError("vectors.rfc_rsa must be an object")
+    jwks = _jwks(raw.get("jwks", raw.get("state")), "vectors.rfc_rsa.jwks")
+    compact = raw.get("compact", raw.get("token"))
+    issuer = raw.get("issuer")
+    now = raw.get("now")
+    if not isinstance(compact, str) or compact.count(".") != 2:
+        raise ValueError("vectors.rfc_rsa.compact must be a compact JWT")
+    if not isinstance(issuer, str) or not issuer:
+        raise ValueError("vectors.rfc_rsa.issuer must be a non-empty string")
+    if not isinstance(now, int) or isinstance(now, bool):
+        raise ValueError("vectors.rfc_rsa.now must be an integer")
+    return {"jwks": jwks, "compact": compact, "issuer": issuer, "now": now, "source": raw.get("source")}
+
+
 def _prepare_command(
     language: str,
     version: str,
@@ -312,7 +375,12 @@ def _row(
 
 
 def _expected_rows(
-    languages: list[str], versions: Mapping[str, Mapping[str, str]], rotation: Mapping[str, Any], rfc: Mapping[str, Any]
+    languages: list[str],
+    versions: Mapping[str, Mapping[str, str]],
+    rotation: Mapping[str, Any],
+    rfc: Mapping[str, Any],
+    rsa: Mapping[str, Any] | None = None,
+    rfc_rsa: Mapping[str, Any] | None = None,
 ) -> list[CheckRow]:
     verifiers = [language for language in languages if language != "python"]
     rows: list[CheckRow] = []
@@ -349,6 +417,47 @@ def _expected_rows(
                                 consumer_phase=consumer_phase,
                             )
                         )
+                if rfc_rsa is not None:
+                    rows.append(
+                        _row(
+                            f"rfc-rsa-{producer_phase}-{consumer_phase}-{language}",
+                            "rfc-7515-rs256",
+                            producer,
+                            consumer,
+                            "verified",
+                            "pending",
+                            "INCOMPLETE",
+                            producer_phase=producer_phase,
+                            consumer_phase=consumer_phase,
+                        )
+                    )
+                if rsa is not None:
+                    rows.extend(
+                        (
+                            _row(
+                                f"rsa-{producer_phase}-{consumer_phase}-{language}-audience",
+                                "rsa-jwt-audience",
+                                producer,
+                                consumer,
+                                "verified",
+                                "pending",
+                                "INCOMPLETE",
+                                producer_phase=producer_phase,
+                                consumer_phase=consumer_phase,
+                            ),
+                            _row(
+                                f"rsa-{producer_phase}-{consumer_phase}-{language}-wrong-audience",
+                                "rsa-jwt-audience",
+                                producer,
+                                consumer,
+                                "rejected",
+                                "pending",
+                                "INCOMPLETE",
+                                producer_phase=producer_phase,
+                                consumer_phase=consumer_phase,
+                            ),
+                        )
+                    )
         # These two controls verify the RFC 7515 signature through Python's
         # public verifier, independently of the Go/Java consumer lanes.
         rows.append(
@@ -364,7 +473,64 @@ def _expected_rows(
                 consumer_phase=producer_phase,
             )
         )
+        if rfc_rsa is not None:
+            rows.append(
+                _row(
+                    f"rfc-rsa-python-self-{producer_phase}",
+                    "rfc-7515-rs256-python-control",
+                    producer,
+                    producer,
+                    "verified",
+                    "pending",
+                    "INCOMPLETE",
+                    producer_phase=producer_phase,
+                    consumer_phase=producer_phase,
+                )
+            )
+        if rsa is not None:
+            rows.extend(
+                (
+                    _row(
+                        f"rsa-python-self-{producer_phase}",
+                        "rsa-jwt-audience-python-control",
+                        producer,
+                        producer,
+                        "verified",
+                        "pending",
+                        "INCOMPLETE",
+                        producer_phase=producer_phase,
+                        consumer_phase=producer_phase,
+                    ),
+                    _row(
+                        f"rsa-python-wrong-audience-{producer_phase}",
+                        "rsa-jwt-audience-python-control",
+                        producer,
+                        producer,
+                        "rejected",
+                        "pending",
+                        "INCOMPLETE",
+                        producer_phase=producer_phase,
+                        consumer_phase=producer_phase,
+                    ),
+                )
+            )
     return rows
+
+
+def expected_case_ids(profile: Mapping[str, Any], vectors: Mapping[str, Any]) -> set[str]:
+    """Return the independent row-ID contract for release packaging.
+
+    Packaging checks use this function instead of a formula based on the
+    number of verifiers.  The contract grows when an explicitly validated
+    vector is present and remains stable for the historical profile.
+    """
+
+    languages, versions = _validate_profile(profile)
+    rfc = _validate_rfc(vectors)
+    rsa = _validate_rsa(vectors, rfc)
+    rfc_rsa = _validate_rfc_rsa(vectors)
+    rotation = _rotation_sets(vectors)
+    return {row.check_id for row in _expected_rows(languages, versions, rotation, rfc, rsa, rfc_rsa)}
 
 
 def _response_results(response: dict[str, Any] | None, expected_ids: set[str]) -> tuple[dict[str, dict[str, Any]], str | None]:
@@ -437,6 +603,40 @@ def _publisher_exports(
     return exports, errors
 
 
+def _adapter_attestation(
+    result: RunnerResult,
+    language: str,
+    phase: str,
+    requested_version: str,
+    operation: str,
+) -> dict[str, Any]:
+    """Record package identity only from a validated adapter response.
+
+    The profile is the requested input.  It is never treated as proof that a
+    runner installed that version.  ``_run_runner`` already rejects a response
+    whose reported version differs from the request, so a ``verified`` record
+    here is an attestation from the adapter process itself.
+    """
+
+    response = result.response or {}
+    reported = response.get("version")
+    adapter_version = reported if isinstance(reported, str) else None
+    runtime = response.get("runtime")
+    value: dict[str, Any] = {
+        "language": language,
+        "phase": phase,
+        "requested_version": requested_version,
+        "adapter_version": adapter_version,
+        "runtime": runtime if isinstance(runtime, str) else None,
+        "operation": operation,
+        "source": "adapter-response",
+        "status": "verified" if result.error is None and adapter_version == requested_version else "incomplete",
+    }
+    if result.error:
+        value["error"] = result.error
+    return value
+
+
 def _run_matrix(
     profile: Mapping[str, Any],
     vectors: Mapping[str, Any],
@@ -446,10 +646,13 @@ def _run_matrix(
     *,
     prepare_fn: Callable[..., Sequence[str] | str | pathlib.Path] | None = None,
     invoke_fn: Callable[[Sequence[str], Mapping[str, Any], pathlib.Path], dict[str, Any]] | None = None,
+    project: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     invoke = invoke_fn or _invoke
     languages, versions = _validate_profile(profile)
     rfc = _validate_rfc(vectors)
+    rsa = _validate_rsa(vectors, rfc)
+    rfc_rsa = _validate_rfc_rsa(vectors)
     rotation = _rotation_sets(vectors)
     rotation_data = vectors["rotation"]
     if not isinstance(rotation_data, Mapping):
@@ -461,7 +664,7 @@ def _run_matrix(
     if not isinstance(rotation_now, int) or isinstance(rotation_now, bool):
         raise ValueError("vectors.rotation.now must be an integer")
 
-    rows = _expected_rows(languages, versions, rotation, rfc)
+    rows = _expected_rows(languages, versions, rotation, rfc, rsa, rfc_rsa)
     commands: dict[tuple[str, str], list[str]] = {}
     publishers: dict[str, RunnerResult] = {}
     publisher_exports: dict[str, tuple[dict[str, dict[str, Any]], dict[str, str]]] = {}
@@ -475,10 +678,19 @@ def _run_matrix(
         # The RFC 7515 row must exercise the publisher's actual export too; a
         # global fixture key would only test the verifier and mislabel the lane.
         publish_sets["rfc"] = rfc["jwks"]
+        if rsa is not None:
+            publish_sets["rsa"] = rsa["jwks"]
+        if rfc_rsa is not None:
+            publish_sets["rfc_rsa"] = rfc_rsa["jwks"]
         payload = {"operation": "publish", "sets": publish_sets}
         result = _run_runner("python", version, cache, offline, payload, commands, invoke, prepare_fn)
         publishers[phase] = result
-        publisher_exports[phase] = _publisher_exports(result, f"python@{version}")
+        required_sets = ["rfc", "initial", "overlap", "retired"]
+        if rsa is not None:
+            required_sets.append("rsa")
+        if rfc_rsa is not None:
+            required_sets.append("rfc_rsa")
+        publisher_exports[phase] = _publisher_exports(result, f"python@{version}", required_sets)
 
     # Run one actual Python verification call per publisher phase.  This is a
     # measured control for the Python API, not an inference from publishing or
@@ -493,20 +705,52 @@ def _run_matrix(
             python_control_expected[phase] = set()
             python_controls[phase] = RunnerResult("python", version, None, reason)
             continue
+        control_checks: list[dict[str, Any]] = [
+            {
+                "id": check_id,
+                "jwks": exports["rfc"],
+                "compact": rfc["compact"],
+                "issuer": rfc["issuer"],
+                "now": rfc["now"],
+            }
+        ]
+        if rfc_rsa is not None and "rfc_rsa" in exports:
+            control_checks.append(
+                {
+                    "id": f"rfc-rsa-python-self-{phase}",
+                    "jwks": exports["rfc_rsa"],
+                    "compact": rfc_rsa["compact"],
+                    "issuer": rfc_rsa["issuer"],
+                    "now": rfc_rsa["now"],
+                }
+            )
+        if rsa is not None and "rsa" in exports:
+            control_checks.extend(
+                (
+                    {
+                        "id": f"rsa-python-self-{phase}",
+                        "jwks": exports["rsa"],
+                        "compact": rsa["compact"],
+                        "issuer": rsa["issuer"],
+                        "now": rsa["now"],
+                        "audience": rsa["audience"],
+                    },
+                    {
+                        "id": f"rsa-python-wrong-audience-{phase}",
+                        "jwks": exports["rsa"],
+                        "compact": rsa["compact"],
+                        "issuer": rsa["issuer"],
+                        "now": rsa["now"],
+                        "audience": rsa["other_audience"],
+                    },
+                )
+            )
         control = {
             "operation": "verify",
-            "checks": [
-                {
-                    "id": check_id,
-                    "jwks": exports["rfc"],
-                    "compact": rfc["compact"],
-                    "issuer": rfc["issuer"],
-                    "now": rfc["now"],
-                }
-            ],
+            "checks": control_checks,
         }
         python_controls[phase] = _run_runner("python", version, cache, offline, control, commands, invoke, prepare_fn)
-        python_control_expected[phase] = {check_id}
+        python_control_expected[phase] = {str(item["id"]) for item in control_checks}
 
     verifier_languages = [language for language in languages if language != "python"]
     requested_ids: dict[tuple[str, str], set[str]] = {}
@@ -525,8 +769,43 @@ def _run_matrix(
                     requested_ids[key].add(rfc_id)
                 else:
                     unavailable_ids[(key[0], key[1], rfc_id)] = errors.get("rfc", "publisher RFC export unavailable")
+                if rfc_rsa is not None:
+                    rsa_rfc_id = f"rfc-rsa-{producer_phase}-{consumer_phase}-{language}"
+                    if "rfc_rsa" in exports:
+                        checks.append(
+                            {
+                                "id": rsa_rfc_id,
+                                "jwks": exports["rfc_rsa"],
+                                "compact": rfc_rsa["compact"],
+                                "issuer": rfc_rsa["issuer"],
+                                "now": rfc_rsa["now"],
+                            }
+                        )
+                        requested_ids[key].add(rsa_rfc_id)
+                    else:
+                        unavailable_ids[(key[0], key[1], rsa_rfc_id)] = errors.get("rfc_rsa", "publisher RFC RSA export unavailable")
+                if rsa is not None:
+                    rsa_checks = (
+                        (f"rsa-{producer_phase}-{consumer_phase}-{language}-audience", rsa["audience"]),
+                        (f"rsa-{producer_phase}-{consumer_phase}-{language}-wrong-audience", rsa["other_audience"]),
+                    )
+                    for rsa_id, audience in rsa_checks:
+                        if "rsa" in exports:
+                            checks.append(
+                                {
+                                    "id": rsa_id,
+                                    "jwks": exports["rsa"],
+                                    "compact": rsa["compact"],
+                                    "issuer": rsa["issuer"],
+                                    "now": rsa["now"],
+                                    "audience": audience,
+                                }
+                            )
+                            requested_ids[key].add(rsa_id)
+                        else:
+                            unavailable_ids[(key[0], key[1], rsa_id)] = errors.get("rsa", "publisher RSA export unavailable")
                 for rotation_phase, exported in exports.items():
-                    if rotation_phase == "rfc":
+                    if rotation_phase in {"rfc", "rsa", "rfc_rsa"}:
                         continue
                     for key_name in ("old", "new"):
                         check_id = f"rotation-{producer_phase}-{consumer_phase}-{language}-{rotation_phase}-{key_name}"
@@ -540,8 +819,8 @@ def _run_matrix(
                             unavailable_ids[(key[0], key[1], check_id)] = reason
             consumers[key] = _run_runner(language, version, cache, offline, {"operation": "verify", "checks": checks}, commands, invoke, prepare_fn)
 
-    control_rows = [row for row in rows if row.scenario == "rfc-7515-python-control"]
-    matrix_rows = [row for row in rows if row.scenario != "rfc-7515-python-control"]
+    control_rows = [row for row in rows if row.scenario.endswith("python-control")]
+    matrix_rows = [row for row in rows if not row.scenario.endswith("python-control")]
     by_consumer: dict[tuple[str, str], list[CheckRow]] = {}
     for row in matrix_rows:
         by_consumer.setdefault((row.consumer_phase, row.consumer.split("@", 1)[0]), []).append(row)
@@ -580,7 +859,38 @@ def _run_matrix(
     for (phase, language), result in consumers.items():
         if result.response and isinstance(result.response.get("runtime"), str):
             runtimes[f"{language}@{versions[phase][language]}"] = result.response["runtime"]
-    return {"schema_version": 1, "status": status, "summary": {"total": len(rows), "passed": summary["pass"], "failed": summary["fail"], "incomplete": summary["incomplete"]}, "rows": [row.as_dict() for row in rows], "profile": dict(profile), "revision": revision, "runtimes": runtimes}
+    attestations: dict[str, dict[str, dict[str, Any]]] = {"baseline": {}, "candidate": {}}
+    for phase in ("baseline", "candidate"):
+        python_version = versions[phase]["python"]
+        attestations[phase]["python"] = _adapter_attestation(
+            publishers[phase], "python", phase, python_version, "publish"
+        )
+        for language in verifier_languages:
+            version = versions[phase][language]
+            result = consumers.get((phase, language)) or RunnerResult(
+                language, version, None, "consumer was not run"
+            )
+            attestations[phase][language] = _adapter_attestation(
+                result, language, phase, version, "verify"
+            )
+    row_dicts = [row.as_dict() for row in rows]
+    return {
+        "schema_version": 1,
+        "status": status,
+        "summary": {
+            "total": len(rows),
+            "passed": summary["pass"],
+            "failed": summary["fail"],
+            "incomplete": summary["incomplete"],
+        },
+        "rows": row_dicts,
+        "decision": build_decision(row_dicts),
+        "profile": dict(profile),
+        "project": dict(project) if isinstance(project, Mapping) else None,
+        "revision": revision,
+        "runtimes": runtimes,
+        "attestations": attestations,
+    }
 
 
 def _markdown(report: Mapping[str, Any]) -> str:
@@ -590,13 +900,57 @@ def _markdown(report: Mapping[str, Any]) -> str:
         return str(value if value is not None else "").replace("|", "\\|").replace("\n", " ")
 
     rows = list(report.get("rows", []))
+
+    def human_decision(value: Any) -> str:
+        return {
+            "publisher_first": "Publisher first",
+            "verifier_first": "Verifier first",
+            "either": "Either order",
+            "mixed": "Different order by verifier",
+            "blocked": "Blocked",
+            "unknown": "Unknown",
+        }.get(str(value), "Unknown")
+
+    def human_delta(value: Any) -> str:
+        return {
+            "regression": "Regression",
+            "fixed": "Fixed",
+            "persistent": "Still failing",
+            "unchanged": "Unchanged",
+            "not_measured": "Not measured",
+        }.get(str(value), "Not measured")
+
+    def human_state(value: Any) -> str:
+        return {
+            "pass": "Pass",
+            "fail": "Fail",
+            "not_measured": "Not measured",
+        }.get(str(value), "Not measured")
+
+    decision = report.get("decision")
+    rollout = decision.get("rollout") if isinstance(decision, Mapping) else None
+    overall = rollout.get("overall") if isinstance(rollout, Mapping) else "unknown"
     lines = [
         f"# Tink compatibility report: {report['status']}",
+        "",
+        f"Rollout verdict: **{human_decision(overall)}**",
         "",
         f"Revision: `{report.get('revision') or 'unknown'}`",
         "",
         f"Passed {summary['passed']} / {summary['total']}; Failed {summary['failed']}; Incomplete {summary['incomplete']}",
     ]
+    if isinstance(decision, Mapping):
+        delta_summary = decision.get("delta_summary")
+        if not isinstance(delta_summary, Mapping):
+            delta_summary = {}
+        delta_text = ", ".join(f"{human_delta(key)} {value}" for key, value in sorted(delta_summary.items())) or "none"
+        lines.extend(["", f"Scenario deltas: {cell(delta_text)}"])
+        lanes = rollout.get("lanes") if isinstance(rollout, Mapping) else {}
+        if isinstance(lanes, Mapping) and lanes:
+            lines.extend(["", "| Verifier lane | Rollout decision |", "| --- | --- |"])
+            for language, lane in sorted(lanes.items()):
+                value = lane.get("decision", "unknown") if isinstance(lane, Mapping) else "unknown"
+                lines.append(f"| {cell(language)} | {cell(human_decision(value))} |")
     profile = report.get("profile")
     if isinstance(profile, Mapping):
         name = profile.get("name")
@@ -609,6 +963,92 @@ def _markdown(report: Mapping[str, Any]) -> str:
             for language in ("python", "go", "java"):
                 if language in baseline or language in candidate:
                     lines.append(f"| {language} | {cell(baseline.get(language, ''))} | {cell(candidate.get(language, ''))} |")
+
+    project = report.get("project")
+    if isinstance(project, Mapping):
+        lines.extend(["", "## Project provenance", ""])
+        for phase_name, label in (("baseline", "Baseline"), ("candidate", "Candidate")):
+            side = project.get(phase_name, {})
+            commit = side.get("revision") or project.get("base_revision" if phase_name == "baseline" else "head_revision")
+            if commit and side.get("revision_exact") is False:
+                commit = f"{commit} (working tree inputs)"
+            lines.append(f"{label} revision: `{cell(commit or 'unverified')}`")
+        manifests: list[tuple[str, Mapping[str, Any]]] = []
+        for phase_name in ("baseline", "candidate"):
+            phase_data = project.get(phase_name)
+            if not isinstance(phase_data, Mapping):
+                continue
+            for item in phase_data.get("manifests", []):
+                if isinstance(item, Mapping):
+                    manifests.append((phase_name, item))
+        if manifests:
+            lines.extend(
+                [
+                    "",
+                    "| Phase | Manifest | SHA-256 | Declared | Resolved |",
+                    "| --- | --- | --- | --- | --- |",
+                ]
+            )
+            for phase_name, item in manifests:
+                lines.append(
+                    "| "
+                    + " | ".join(
+                        (
+                            cell(phase_name),
+                            cell(item.get("path") or item.get("kind") or "unknown"),
+                            cell(item.get("sha256") or ""),
+                            cell(item.get("declared_version") or ""),
+                            cell(item.get("resolved_version") or ""),
+                        )
+                    )
+                    + " |"
+                )
+
+    attestations = report.get("attestations")
+    if isinstance(attestations, Mapping):
+        lines.extend(["", "## Adapter attestations", "", "| Phase | Language | Requested | Adapter reported | Status |", "| --- | --- | --- | --- | --- |"])
+        for phase_name in ("baseline", "candidate"):
+            phase_data = attestations.get(phase_name)
+            if not isinstance(phase_data, Mapping):
+                continue
+            for language, value in sorted(phase_data.items()):
+                if not isinstance(value, Mapping):
+                    continue
+                status = "Verified" if value.get("status") == "verified" else "Incomplete"
+                lines.append(
+                    "| "
+                    + " | ".join(
+                        (
+                            cell(phase_name),
+                            cell(language),
+                            cell(value.get("requested_version") or ""),
+                            cell(value.get("adapter_version") or "unreported"),
+                            status,
+                        )
+                    )
+                    + " |"
+                )
+
+    if isinstance(decision, Mapping):
+        deltas = decision.get("deltas")
+        changed = [item for item in deltas if isinstance(item, Mapping) and item.get("kind") != "unchanged"] if isinstance(deltas, list) else []
+        if changed:
+            lines.extend(["", "## Changed or unmeasured scenarios", "", "| Scenario | Producer | Consumer | Before | After | Result |", "| --- | --- | --- | --- | --- | --- |"])
+            for item in changed:
+                lines.append(
+                    "| "
+                    + " | ".join(
+                        (
+                            cell(item.get("scenario") or ""),
+                            cell(item.get("producer") or ""),
+                            cell(item.get("consumer") or ""),
+                            cell(human_state(item.get("before"))),
+                            cell(human_state(item.get("after"))),
+                            cell(human_delta(item.get("kind"))),
+                        )
+                    )
+                    + " |"
+                )
 
     # A compact lane view makes baseline/candidate comparison readable without
     # hiding the per-vector rows below.
@@ -624,7 +1064,7 @@ def _markdown(report: Mapping[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "## Publisher → verifier lanes",
+            "## Publisher Ã¢â€ â€™ verifier lanes",
             "",
             "Each lane is a publisher-to-verifier baseline/candidate slice of the fixed matrix.",
             "",
@@ -710,11 +1150,20 @@ def write_report(report: Mapping[str, Any], output: pathlib.Path) -> None:
     _atomic_write(output / "report.md", _markdown(report))
 
 
-def run_check(profile_path: pathlib.Path, vectors_path: pathlib.Path, output: pathlib.Path, cache: pathlib.Path, offline: bool, revision: str) -> tuple[dict[str, Any], int]:
+def run_check(
+    profile_path: pathlib.Path,
+    vectors_path: pathlib.Path,
+    output: pathlib.Path,
+    cache: pathlib.Path,
+    offline: bool,
+    revision: str,
+    *,
+    project: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, Any], int]:
     try:
         profile, profile_raw = _read_json(profile_path)
         vectors, vectors_raw = _read_json(vectors_path)
-        report = _run_matrix(profile, vectors, cache, offline, revision)
+        report = _run_matrix(profile, vectors, cache, offline, revision, project=project)
         report["hashes"] = {"profile_sha256": _hash_bytes(profile_raw), "vectors_sha256": _hash_bytes(vectors_raw)}
         write_report(report, output)
     except ValueError as exc:
@@ -738,8 +1187,10 @@ def run_check(profile_path: pathlib.Path, vectors_path: pathlib.Path, output: pa
                 }
             ],
             "profile": {},
+            "project": dict(project) if isinstance(project, Mapping) else None,
             "revision": revision,
             "runtimes": {},
+            "attestations": {},
             "hashes": {},
             "error": detail,
         }
@@ -771,4 +1222,4 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 2
 
 
-__all__ = ["CheckRow", "main", "run_check", "write_report", "_run_matrix"]
+__all__ = ["CheckRow", "expected_case_ids", "main", "run_check", "write_report", "_run_matrix"]

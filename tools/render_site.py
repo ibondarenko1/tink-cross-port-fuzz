@@ -21,7 +21,7 @@ def cell(value):
     return f"<td>{escape(str(value)) if value is not None else '—'}</td>"
 
 
-def render(artifacts, destination, tag, expected_revision):
+def render(artifacts, destination, tag, expected_revision, *, versions_file=None, permalink=False):
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
         raise ValueError("Expected a full release tag such as v0.1.0.")
     manifest = {}
@@ -50,6 +50,19 @@ def render(artifacts, destination, tag, expected_revision):
         raise ValueError("A published report must identify its source commit.")
     if revision != expected_revision:
         raise ValueError("The published tag points to a different source commit.")
+    archive = versions_file.read_text(encoding="utf-8").splitlines() if versions_file else [tag]
+    if tag not in archive or any(not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", item) for item in archive):
+        raise ValueError("Invalid release archive index.")
+    history = " &middot; ".join(f'<a href="{HOME}{item}/">{item}</a>' for item in archive)
+    orders = {
+        "either": "Both rollout orders passed every required check.",
+        "publisher_first": "Upgrade the Python publisher first.",
+        "verifier_first": "Upgrade the verifiers first.",
+        "blocked": "A required stage of both rollout orders failed.",
+        "unknown": "A rollout order could not be established from the available measurements.",
+    }
+    recommendation = report.get("decision", {}).get("rollout", {}).get("overall")
+    decision = orders.get(recommendation, "See the measured publisher and verifier combinations below.")
     profile = report["profile"]
     versions = []
     for language in sorted(profile["baseline"]):
@@ -66,7 +79,7 @@ def render(artifacts, destination, tag, expected_revision):
         measured.append("<tr>" + "".join(cell(value) for value in (
             scenario, publisher, verifier, row["expected"], row["actual"], row["status"])) + "</tr>")
     html = Template((TEMPLATES / "index.html").read_text(encoding="utf-8")).substitute(
-        repo=REPO, home=HOME, tag=tag, commit=revision, short=revision[:8], verdict=expected,
+        repo=REPO, home=HOME + tag + "/" if permalink else HOME, tag=tag, decision=decision, history=history, commit=revision, short=revision[:8], verdict=expected,
         total=summary["total"], passed=counts["PASS"], failed=counts["FAIL"],
         incomplete=counts["INCOMPLETE"], versions="\n".join(versions), rows="\n".join(measured))
     destination.mkdir(parents=True, exist_ok=True)
@@ -76,7 +89,8 @@ def render(artifacts, destination, tag, expected_revision):
         shutil.copyfile(artifacts / name, destination / name)
     (destination / ".nojekyll").touch()
     (destination / "sitemap.xml").write_text(
-        f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>{HOME}</loc></url></urlset>\n',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+        "".join(f"<url><loc>{url}</loc></url>" for url in [HOME] + [HOME + item + "/" for item in archive]) + "</urlset>\n",
         encoding="utf-8")
 
 
@@ -86,5 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--revision", required=True)
+    parser.add_argument("--permalink", action="store_true")
+    parser.add_argument("--versions", type=Path, help="release tags, one per line")
     args = parser.parse_args()
-    render(args.artifacts, args.out, args.tag, args.revision)
+    render(args.artifacts, args.out, args.tag, args.revision, versions_file=args.versions, permalink=args.permalink)

@@ -15,10 +15,11 @@
   <main>
     <header><div class="mast"><a href="$repo">tink-cross-port-fuzz</a><a href="$repo/releases/tag/$tag">Release $tag</a></div>
       <h1>Tink release compatibility</h1>
-      <p class="intro">Can services still verify the same signed messages while their libraries or public keys change? This report runs the baseline and candidate packages through the RFC 7515 signature and an old-to-new key rotation.</p>
+      <p class="intro">Compare a Python JWKS publisher with Go and Java verifiers during a dependency upgrade. Each combination uses the Tink packages shown below and fixed, signed messages.</p>
       <nav aria-label="Use the release"><a class="action" href="report.json" download>Download JSON</a><a href="$repo/blob/$tag/examples/consumer.yml">Use the GitHub Action</a><a href="$repo/releases/tag/$tag">Install the CLI</a></nav>
     </header>
     <section aria-label="Release result"><p class="result"><strong class="verdict-$verdict">$verdict</strong> $passed of $total checks passed · $failed failed · $incomplete incomplete</p>
+      <p><strong>$decision</strong></p>
       <p>Source revision <a href="$repo/commit/$commit"><code>$short</code></a>. <a href="report.md">Read the Markdown report</a>.</p>
     </section>
     <section><h2>Package versions</h2><table><thead><tr><th>Implementation</th><th>Baseline</th><th>Candidate</th></tr></thead><tbody>$versions</tbody></table></section>
@@ -26,6 +27,7 @@
       <p>During overlap, both public keys must work. After retirement, only the new key should verify. An unavailable required implementation makes the run incomplete.</p>
       <details><summary>Inspect all $total checks</summary><div class="scroll" tabindex="0" aria-label="Verification result table"><table><thead><tr><th>Scenario</th><th>Publisher</th><th>Verifier</th><th>Expected</th><th>Observed</th><th>Result</th></tr></thead><tbody>$rows</tbody></table></div></details>
     </section>
+    <section><h2>Release reports</h2><p>$history</p></section>
     <footer>This independent project helped confirm a JWK parsing difference fixed in <a href="https://github.com/tink-crypto/tink-py/releases/tag/v1.15.0">Tink Python 1.15.0</a>. <a href="https://github.com/tink-crypto/tink-py/pull/76">Upstream PR #76</a>.</footer>
   </main>
 </body>

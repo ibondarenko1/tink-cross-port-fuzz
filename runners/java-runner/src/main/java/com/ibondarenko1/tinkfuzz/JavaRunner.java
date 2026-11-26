@@ -137,6 +137,7 @@ public class JavaRunner {
     String id = requiredString(check, "id");
     String compact = requiredString(check, "compact");
     String issuer = requiredString(check, "issuer");
+    String audience = optionalString(check, "audience");
     long now = requiredLong(check, "now");
     JsonElement jwksElement = check.get("jwks");
     if (jwksElement == null || !jwksElement.isJsonObject()) {
@@ -152,10 +153,13 @@ public class JavaRunner {
       handle = JwkSetConverter.toPublicKeysetHandle(jwksElement.toString());
       verifier = handle.getPrimitive(
           RegistryConfiguration.get(), JwtPublicKeyVerify.class);
-      validator = JwtValidator.newBuilder()
+      JwtValidator.Builder validatorBuilder = JwtValidator.newBuilder()
           .setClock(Clock.fixed(Instant.ofEpochSecond(now), ZoneOffset.UTC))
-          .expectIssuer(issuer)
-          .build();
+          .expectIssuer(issuer);
+      if (audience != null) {
+        validatorBuilder.expectAudience(audience);
+      }
+      validator = validatorBuilder.build();
     } catch (GeneralSecurityException | IOException e) {
       // Import, primitive registration and validator construction are setup
       // failures.  They must not be confused with a negative signature.
@@ -193,6 +197,21 @@ public class JavaRunner {
   private static String requiredString(JsonObject object, String name) {
     JsonElement value = object.get(name);
     if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+      throw new IllegalArgumentException(name + " must be a string");
+    }
+    String text = value.getAsString();
+    if (text.isEmpty()) {
+      throw new IllegalArgumentException(name + " must not be empty");
+    }
+    return text;
+  }
+
+  private static String optionalString(JsonObject object, String name) {
+    JsonElement value = object.get(name);
+    if (value == null || value.isJsonNull()) {
+      return null;
+    }
+    if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
       throw new IllegalArgumentException(name + " must be a string");
     }
     String text = value.getAsString();

@@ -75,11 +75,14 @@ def _verify(payload: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError("each check must have a non-empty id")
         compact = check.get("compact")
         issuer = check.get("issuer")
+        audience = check.get("audience")
         now = check.get("now")
         if not isinstance(compact, str) or not compact:
             raise ValueError(f"check {check_id} has an invalid compact JWT")
         if not isinstance(issuer, str) or not issuer:
             raise ValueError(f"check {check_id} has an invalid issuer")
+        if audience is not None and (not isinstance(audience, str) or not audience):
+            raise ValueError(f"check {check_id} has an invalid audience")
         if not isinstance(now, int) or isinstance(now, bool):
             raise ValueError(f"check {check_id} has an invalid now value")
         try:
@@ -87,6 +90,7 @@ def _verify(payload: Mapping[str, Any]) -> dict[str, Any]:
             verifier = handle.primitive(jwt.JwtPublicKeyVerify)
             validator = jwt.new_validator(
                 expected_issuer=issuer,
+                expected_audience=audience,
                 fixed_now=_datetime.datetime.fromtimestamp(now, _datetime.timezone.utc),
             )
         except Exception as exc:

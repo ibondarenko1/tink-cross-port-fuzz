@@ -1,28 +1,40 @@
 name: Tink compatibility report
-description: Run the pinned Tink producer/consumer compatibility matrix
+description: Check Tink dependency upgrades and rollout order with signed public test fixtures
 author: Ievgen Bondarenko
 inputs:
+  mode:
+    description: "project compares PR commits, sample runs the bundled reference, profile uses an explicit file"
+    default: auto
   profile:
-    description: Path to a compatibility profile relative to the consumer workspace
-    required: false
+    description: Path to an explicit profile in the checked-out workspace
+    default: ''
+  python-lock:
+    description: Exact Python dependency file relative to both project checkouts
+    default: ''
+  go-module:
+    description: Go module directory relative to both project checkouts
+    default: ''
+  go-list:
+    description: Project-relative path to a resolved go list -m -json all export
+    default: ''
+  java-dependencies:
+    description: Project-relative path to a resolved Maven dependency list
     default: ''
   out:
-    description: Directory for report.json and report.md relative to the consumer workspace
-    required: false
+    description: Output directory in the consumer workspace
     default: compatibility-report
   offline:
-    description: Use only adapters already present in the compatibility cache
-    required: false
+    description: Use cached modules and prepared adapters
     default: 'false'
 outputs:
   report-json:
-    description: Absolute path to the generated JSON report when one was written
+    description: Path to report.json
     value: ${{ steps.run.outputs.report-json }}
   report-md:
-    description: Absolute path to the generated Markdown report when one was written
+    description: Path to report.md
     value: ${{ steps.run.outputs.report-md }}
   status:
-    description: PASS, FAIL, or INCOMPLETE from the matrix
+    description: PASS, FAIL or INCOMPLETE
     value: ${{ steps.run.outputs.status }}
 runs:
   using: composite
@@ -31,160 +43,110 @@ runs:
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
       with:
         python-version: '3.12'
+    - name: Identify inputs and checker revision
+      id: begin
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        ACTION_REPO: ${{ github.action_repository }}
+        ACTION_REF: ${{ github.action_ref }}
+        MODE: ${{ inputs.mode }}
+        PROFILE: ${{ inputs.profile }}
+        PYTHON_LOCK: ${{ inputs.python-lock }}
+        GO_MODULE: ${{ inputs.go-module }}
+        GO_LIST: ${{ inputs.go-list }}
+        JAVA_DEPENDENCIES: ${{ inputs.java-dependencies }}
+        OFFLINE: ${{ inputs.offline }}
+        REPORT_DIR: ${{ inputs.out }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: python -I "$ACTION_PATH/tools/action_run.py" begin
+    - name: Check out the PR base commit
+      if: steps.begin.outputs.mode == 'project'
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      with:
+        repository: ${{ github.event.pull_request.base.repo.full_name }}
+        ref: ${{ github.event.pull_request.base.sha }}
+        path: ${{ steps.begin.outputs.trees }}/base
+        persist-credentials: false
+        fetch-depth: 1
+    - name: Check out the PR head commit
+      if: steps.begin.outputs.mode == 'project'
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      with:
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.sha }}
+        path: ${{ steps.begin.outputs.trees }}/head
+        persist-credentials: false
+        fetch-depth: 1
+    - name: Read required languages
+      id: languages
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        PLAN_DIR: ${{ steps.begin.outputs.plan-dir }}
+      run: python -I "$ACTION_PATH/tools/action_run.py" languages
     - name: Set up Go
+      if: steps.languages.outputs.go == 'true'
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
       with:
-        go-version: '1.25.4'
-        # The native source is shipped with this action, not the consumer
-        # checkout.  setup-go's automatic go.sum discovery is therefore both
-        # unnecessary and misleading for an empty consumer worktree.
+        go-version: '1.25.11'
         cache: false
     - name: Set up Java
+      if: steps.languages.outputs.java == 'true'
       uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
       with:
         distribution: temurin
         java-version: '21'
-    - name: Compute runner cache key
-      id: cache-key
+    - name: Resolve both dependency sets
+      id: resolve
       shell: bash
       env:
-        TINK_COMPAT_ACTION_PATH: ${{ github.action_path }}
-        TINK_COMPAT_ACTION_REF: ${{ github.action_ref }}
-      run: |
-        set -euo pipefail
-        fingerprint=$(python - "$TINK_COMPAT_ACTION_PATH" "$TINK_COMPAT_ACTION_REF" <<'PY'
-        import hashlib
-        from pathlib import Path
-        import sys
-
-        action = Path(sys.argv[1])
-        ref = sys.argv[2] or "local"
-        digest = hashlib.sha256(ref.encode("utf-8"))
-        roots = (
-            action / "tink_compat" / "adapters",
-            action / "tink_compat" / "locks",
-            action / "tink_compat" / "prepare.py",
-            action / "runners",
-        )
-        files = []
-        for root in roots:
-            if root.is_file():
-                files.append(root)
-            elif root.is_dir():
-                files.extend(
-                    path
-                    for path in root.rglob("*")
-                    if path.is_file()
-                    and not any(part in {".git", "target", "__pycache__"} for part in path.parts)
-                    and path.name not in {"compat", "compat.exe"}
-                )
-        for path in sorted(files):
-            digest.update(str(path.relative_to(action)).replace("\\", "/").encode("utf-8"))
-            digest.update(b"\0")
-            digest.update(path.read_bytes())
-        print(digest.hexdigest())
-        PY
-        )
-        echo "key=tink-compat-${RUNNER_OS}-${RUNNER_ARCH}-${fingerprint}" >> "$GITHUB_OUTPUT"
-    - name: Restore runner cache
+        ACTION_PATH: ${{ github.action_path }}
+        PLAN_DIR: ${{ steps.begin.outputs.plan-dir }}
+      run: python -I "$ACTION_PATH/tools/action_run.py" resolve
+    - name: Cache python adapter 1
+      if: steps.resolve.outputs.python0-key != ''
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
-        path: ${{ github.workspace }}/.cache/tink-compat
-        key: ${{ steps.cache-key.outputs.key }}
-    - name: Run compatibility matrix
+        key: ${{ steps.resolve.outputs.python0-key }}
+        path: ${{ steps.resolve.outputs.python0-path }}
+    - name: Cache python adapter 2
+      if: steps.resolve.outputs.python1-key != ''
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        key: ${{ steps.resolve.outputs.python1-key }}
+        path: ${{ steps.resolve.outputs.python1-path }}
+    - name: Cache go adapter 1
+      if: steps.resolve.outputs.go0-key != ''
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        key: ${{ steps.resolve.outputs.go0-key }}
+        path: ${{ steps.resolve.outputs.go0-path }}
+    - name: Cache go adapter 2
+      if: steps.resolve.outputs.go1-key != ''
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        key: ${{ steps.resolve.outputs.go1-key }}
+        path: ${{ steps.resolve.outputs.go1-path }}
+    - name: Cache java adapter 1
+      if: steps.resolve.outputs.java0-key != ''
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        key: ${{ steps.resolve.outputs.java0-key }}
+        path: ${{ steps.resolve.outputs.java0-path }}
+    - name: Cache java adapter 2
+      if: steps.resolve.outputs.java1-key != ''
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        key: ${{ steps.resolve.outputs.java1-key }}
+        path: ${{ steps.resolve.outputs.java1-path }}
+    - name: Run compatibility checks and write the PR summary
       id: run
+      if: always() && steps.begin.outputs.plan-dir != ''
       shell: bash
       env:
-        TINK_COMPAT_ACTION_PATH: ${{ github.action_path }}
-        TINK_COMPAT_PROFILE_INPUT: ${{ inputs.profile }}
-        TINK_COMPAT_OUT_INPUT: ${{ inputs.out }}
-        TINK_COMPAT_OFFLINE_INPUT: ${{ inputs.offline }}
-        TINK_COMPAT_ACTION_REF: ${{ github.action_ref }}
-        TINK_COMPAT_ACTION_NAME: ${{ github.action_repository }}
-      run: |
-        set +e
-        resolve_path() {
-          case "$1" in
-            /*) printf '%s\n' "$1" ;;
-            *) printf '%s/%s\n' "$GITHUB_WORKSPACE" "$1" ;;
-          esac
-        }
-        if [[ -z "$TINK_COMPAT_PROFILE_INPUT" ]]; then
-          profile="$TINK_COMPAT_ACTION_PATH/tink_compat/data/profile.json"
-        else
-          profile=$(resolve_path "$TINK_COMPAT_PROFILE_INPUT")
-        fi
-        out=$(resolve_path "$TINK_COMPAT_OUT_INPUT")
-        cache="$GITHUB_WORKSPACE/.cache/tink-compat"
-        action_ref="${TINK_COMPAT_ACTION_REF:-local}"
-        action_name="${TINK_COMPAT_ACTION_NAME:-local-action}"
-        revision="action:${action_name}@${action_ref}"
-        mkdir -p "$out"
-        # Retain the previous pair before invoking the checker.  This avoids
-        # publishing stale files after an early failure without discarding a
-        # user's earlier report; a successful check writes the new pair in the
-        # original output directory.
-        if [[ -f "$out/report.json" || -f "$out/report.md" ]]; then
-          stamp=$(date -u +%Y%m%dT%H%M%SZ)
-          snapshot="$out/snapshots/$stamp"
-          mkdir -p "$snapshot"
-          [[ ! -f "$out/report.json" ]] || mv "$out/report.json" "$snapshot/report.json"
-          [[ ! -f "$out/report.md" ]] || mv "$out/report.md" "$snapshot/report.md"
-        fi
-        args=(--out "$out" --profile "$profile" --cache "$cache" --revision "$revision")
-        if [[ "$TINK_COMPAT_OFFLINE_INPUT" == "true" ]]; then
-          args+=(--offline)
-        fi
-        (
-          cd "$TINK_COMPAT_ACTION_PATH"
-          PYTHONPATH="$TINK_COMPAT_ACTION_PATH${PYTHONPATH:+:$PYTHONPATH}" \
-            python -m tink_compat check "${args[@]}"
-        )
-        rc=$?
-        if [[ ! -f "$out/report.json" ]]; then
-          if [[ "$rc" -eq 0 ]]; then
-            rc=2
-          fi
-          python - "$out" "$revision" "$rc" <<'PY'
-        import json
-        from pathlib import Path
-        import sys
-
-        output = Path(sys.argv[1])
-        revision = sys.argv[2]
-        code = sys.argv[3]
-        report = {
-            "schema_version": 1,
-            "status": "INCOMPLETE",
-            "summary": {"total": 0, "passed": 0, "failed": 0, "incomplete": 0},
-            "rows": [],
-            "profile": {},
-            "revision": revision,
-            "runtimes": {},
-            "hashes": {},
-            "error": f"compatibility command exited {code} before writing a report",
-        }
-        output.mkdir(parents=True, exist_ok=True)
-        (output / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        (output / "report.md").write_text(
-            "# Tink compatibility report: INCOMPLETE\n\n"
-            f"Revision: `{revision}`\n\n"
-            f"The compatibility command exited {code} before writing its report.\n",
-            encoding="utf-8",
-        )
-        PY
-        fi
-        if [[ -f "$out/report.json" ]]; then
-          echo "report-json=$out/report.json" >> "$GITHUB_OUTPUT"
-          status=$(python -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("status", "INCOMPLETE"))' "$out/report.json")
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-        else
-          echo "status=INCOMPLETE" >> "$GITHUB_OUTPUT"
-        fi
-        if [[ -f "$out/report.md" ]]; then
-          echo "report-md=$out/report.md" >> "$GITHUB_OUTPUT"
-          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-            cat "$out/report.md" >> "$GITHUB_STEP_SUMMARY"
-          fi
-        fi
-        exit "$rc"
+        ACTION_PATH: ${{ github.action_path }}
+        PLAN_DIR: ${{ steps.begin.outputs.plan-dir }}
+        PRIOR_STATUS: ${{ job.status }}
+      run: python -I "$ACTION_PATH/tools/action_run.py" run

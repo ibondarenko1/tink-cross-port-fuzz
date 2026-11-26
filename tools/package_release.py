@@ -10,6 +10,8 @@ import tarfile
 import tomllib
 from zipfile import ZipFile
 
+from release_contract import validate_refs, validate_report
+
 
 def collect(dist: Path, report_dir: Path, out: Path, revision: str) -> None:
     root = Path(__file__).resolve().parents[1]
@@ -19,7 +21,7 @@ def collect(dist: Path, report_dir: Path, out: Path, revision: str) -> None:
     source = dist / f"{stem}.tar.gz"
     # Verify the installed package and the source distribution carry the same test inputs.
     with ZipFile(wheel) as archive, tarfile.open(source) as tar:
-        for path in ("data/profile.json", "data/vectors.json"):
+        for path in ("data/profile.json", "data/profile-v0.1.json", "data/catalog.json", "data/vectors.json"):
             key = "tink_compat/" + path
             original = (root / key).read_bytes()
             archived = tar.extractfile(f"{stem}/{key}")
@@ -28,15 +30,9 @@ def collect(dist: Path, report_dir: Path, out: Path, revision: str) -> None:
     report = json.loads((report_dir / "report.json").read_bytes())
     if not re.fullmatch(r"[0-9a-f]{40}", revision) or report["revision"] != revision:
         raise ValueError("The measured revision must match the revision being packaged.")
-    rows = report["rows"]
-    verifiers = set(report["profile"]["baseline"]) - {"python"}
-    expected_total = 2 + 4 * len(verifiers) * 7
-    if len(rows) != expected_total or len({row["id"] for row in rows}) != expected_total:
-        raise ValueError("The release report must contain all expected signatures and rotation checks.")
-    if report["summary"] != {"total": len(rows), "passed": len(rows), "failed": 0, "incomplete": 0}:
-        raise ValueError("The measured totals do not match the release rows.")
-    if report["status"] != "PASS" or any(row["status"] != "PASS" for row in rows):
-        raise ValueError("A release requires a complete passing matrix.")
+    validate_refs("v" + version)
+    reference_profile = json.loads((root / "tink_compat/data/profile.json").read_bytes())
+    validate_report(report, revision, reference_profile)
     for kind, filename in (("profile", "profile.json"), ("vectors", "vectors.json")):
         digest = sha256((root / "tink_compat/data" / filename).read_bytes()).hexdigest()
         if digest != report["hashes"][f"{kind}_sha256"]:

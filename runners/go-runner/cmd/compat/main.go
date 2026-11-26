@@ -27,11 +27,12 @@ type request struct {
 }
 
 type check struct {
-	ID      string          `json:"id"`
-	JWKS    json.RawMessage `json:"jwks"`
-	Compact string          `json:"compact"`
-	Issuer  string          `json:"issuer"`
-	Now     int64           `json:"now"`
+	ID       string          `json:"id"`
+	JWKS     json.RawMessage `json:"jwks"`
+	Compact  string          `json:"compact"`
+	Issuer   string          `json:"issuer"`
+	Audience *string         `json:"audience"`
+	Now      int64           `json:"now"`
 }
 
 type result struct {
@@ -110,8 +111,9 @@ func verifyCheck(item check) (out result) {
 	}
 	issuer := item.Issuer
 	validator, err := jwt.NewValidator(&jwt.ValidatorOpts{
-		ExpectedIssuer: &issuer,
-		FixedNow:       time.Unix(item.Now, 0).UTC(),
+		ExpectedIssuer:   &issuer,
+		ExpectedAudience: item.Audience,
+		FixedNow:         time.Unix(item.Now, 0).UTC(),
 	})
 	if err != nil {
 		return result{ID: item.ID, Outcome: "error", Detail: "validator setup failed"}
@@ -152,6 +154,9 @@ func run(input []byte) ([]byte, int) {
 		}
 		if item.Issuer == "" {
 			return marshalError(invalidRequest("each check requires an issuer"))
+		}
+		if item.Audience != nil && *item.Audience == "" {
+			return marshalError(invalidRequest("audience must not be empty"))
 		}
 	}
 
