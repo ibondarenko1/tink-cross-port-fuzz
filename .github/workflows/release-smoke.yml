@@ -29,6 +29,7 @@ jobs:
           result = json.loads(Path(sys.argv[1]).read_text())
           assert result["status"] == "PASS" and len(result["rows"]) == 58
           assert result["summary"]["passed"] == 58
+          assert result["revision"] == "action:ibondarenko1/tink-cross-port-fuzz@v0.1.0"
           PY
   wheel-consumer:
     runs-on: ubuntu-24.04
@@ -63,4 +64,5 @@ jobs:
           from pathlib import Path
           result = json.loads(Path("report/report.json").read_text())
           assert result["status"] == "PASS" and result["summary"]["passed"] == 58
+          assert result["revision"] == "tink-release-compat@0.1.0"
           PY

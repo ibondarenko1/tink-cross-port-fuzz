@@ -19,6 +19,11 @@ import sys
 import time
 import venv
 
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
+
 
 SUPPORTED = {
     "python": {"1.14.1", "1.15.0"},
@@ -26,7 +31,6 @@ SUPPORTED = {
     "java": {"1.18.0"},
 }
 LOCK_TIMEOUT_SECONDS = 900
-STALE_LOCK_SECONDS = 1800
 
 
 class PrepareError(RuntimeError):
@@ -45,41 +49,56 @@ def _project_root() -> Path:
 
 def _lock_dir(cache: Path, language: str, version: str) -> Path:
     safe = f"{language}-{version}".replace("/", "_")
-    return cache / ".locks" / safe
+    return cache / ".locks" / f"{safe}.lock"
 
 
 class _CacheLock:
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.handle = None
         self.acquired = False
 
     def __enter__(self) -> "_CacheLock":
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.handle = self.path.open("a+b")
+        if os.name == "nt":
+            # msvcrt.locking works on a byte range beginning at the current
+            # file pointer.  Ensure that byte exists before seeking to it.
+            self.handle.seek(0, os.SEEK_END)
+            if self.handle.tell() == 0:
+                self.handle.write(b"\0")
+                self.handle.flush()
+            self.handle.seek(0)
         started = time.monotonic()
         while True:
             try:
-                self.path.mkdir()
+                if os.name == "nt":
+                    msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 self.acquired = True
-                (self.path / "owner.json").write_text(
-                    json.dumps({"pid": os.getpid(), "created": time.time()}),
-                    encoding="utf-8",
-                )
                 return self
-            except FileExistsError:
-                try:
-                    age = time.time() - self.path.stat().st_mtime
-                    if age > STALE_LOCK_SECONDS:
-                        shutil.rmtree(self.path)
-                        continue
-                except FileNotFoundError:
-                    continue
+            except OSError:
                 if time.monotonic() - started > LOCK_TIMEOUT_SECONDS:
+                    self.handle.close()
+                    self.handle = None
                     raise PrepareError(f"timed out waiting for cache lock {self.path}")
                 time.sleep(0.25)
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        if self.acquired:
-            shutil.rmtree(self.path, ignore_errors=True)
+        if self.handle is None:
+            return
+        try:
+            if self.acquired:
+                if os.name == "nt":
+                    self.handle.seek(0)
+                    msvcrt.locking(self.handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            self.handle.close()
+            self.handle = None
+            self.acquired = False
 
 
 def _run(command: list[str], *, cwd: Path | None = None, offline: bool = False) -> subprocess.CompletedProcess[str]:

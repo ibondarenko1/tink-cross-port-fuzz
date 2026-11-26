@@ -11,6 +11,7 @@ from tink_compat.check import (
     DEFAULT_VECTORS,
     _default_cache,
     _expected_rows,
+    _markdown,
     _rotation_sets,
     _run_matrix,
     _validate_profile,
@@ -174,6 +175,15 @@ def test_cli_uses_sealed_vectors_and_user_cache(monkeypatch, tmp_path: Path):
         assert _default_cache() == cache_root / "tink-cross-port-fuzz"
     with pytest.raises(SystemExit):
         build_parser().parse_args(["check", "--out", str(tmp_path / "out"), "--vectors", "custom.json"])
+
+
+def test_markdown_contains_lane_comparison_and_phase_versions(tmp_path: Path):
+    report = _run_matrix(_profile("python", "go"), _vectors(), tmp_path / "cache", True, "test", prepare_fn=_prepare, invoke_fn=_invoke)
+    markdown = _markdown(report)
+    assert "Publisher" in markdown and "verifier lanes" in markdown
+    assert "python@1.14.1 (baseline)" in markdown
+    assert "python@1.15.0 (candidate)" in markdown
+    assert "Producer phase" in markdown and "Consumer phase" in markdown
 
 
 def test_report_reuses_output_without_losing_previous_snapshot(tmp_path: Path):

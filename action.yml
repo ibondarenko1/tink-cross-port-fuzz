@@ -100,7 +100,7 @@ runs:
         TINK_COMPAT_OUT_INPUT: ${{ inputs.out }}
         TINK_COMPAT_OFFLINE_INPUT: ${{ inputs.offline }}
         TINK_COMPAT_ACTION_REF: ${{ github.action_ref }}
-        TINK_COMPAT_ACTION_NAME: ${{ github.action }}
+        TINK_COMPAT_ACTION_NAME: ${{ github.action_repository }}
       run: |
         set +e
         resolve_path() {

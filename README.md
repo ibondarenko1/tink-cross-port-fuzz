@@ -2,13 +2,13 @@
 
 Check whether Go and Java services can still verify signed JWTs while a Python service updates Tink or rotates its public keys. The CLI runs real, pinned Tink packages and produces a JSON report for CI and a Markdown report for upgrade reviews.
 
-[View the release results](https://ibondarenko1.github.io/tink-cross-port-fuzz/) · [Download v0.1.0](https://github.com/ibondarenko1/tink-cross-port-fuzz/releases/tag/v0.1.0) · [Copy the GitHub Actions workflow](examples/consumer.yml)
+[View the release results](https://ibondarenko1.github.io/tink-cross-port-fuzz/) · [Download v0.1.0](https://github.com/ibondarenko1/tink-cross-port-fuzz/releases/tag/v0.1.0) · [Copy the GitHub Actions workflow](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/examples/consumer.yml)
 
 This project started as a comparison of Tink's JWK parsers. That work confirmed a duplicate-field discrepancy fixed in Tink Python 1.15.0. [Upstream PR #76](https://github.com/tink-crypto/tink-py/pull/76) · [Tink Python release notes](https://github.com/tink-crypto/tink-py/releases/tag/v1.15.0)
 
 ## Run it in GitHub Actions
 
-Copy [the complete workflow](examples/consumer.yml) to `.github/workflows/tink-compat.yml` in your repository. The action installs the toolchains and runs the included upgrade profile on an Ubuntu runner. This is the step that produces the reports.
+Copy [the complete workflow](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/examples/consumer.yml) to `.github/workflows/tink-compat.yml` in your repository. The action installs the toolchains and runs the included upgrade profile on an Ubuntu runner. This is the step that produces the reports.
 
 ```yaml
 - name: Check Tink compatibility
@@ -41,11 +41,11 @@ Open `compatibility-report/report.md` for the comparison or read `report.json` i
 | Go verifies compact signatures | Tink Go 2.4.0 | Tink Go 2.5.0 |
 | Java verifies compact signatures | Tink Java 1.18.0 | Tink Java 1.18.0 |
 
-Each Python publisher runs against both verifier configurations. Keeping Java fixed tests whether a service can stay on its current version while its Python peer upgrades. Reviewers can compare a mixed deployment with the fully upgraded one. The package versions are defined in the [release profile](tink_compat/data/profile.json). Use `--profile PATH` to compare another combination of the bundled versions.
+Each Python publisher runs against both verifier configurations. Keeping Java fixed tests whether a service can stay on its current version while its Python peer upgrades. Reviewers can compare a mixed deployment with the fully upgraded one. The package versions are defined in the [release profile](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/tink_compat/data/profile.json). Use `--profile PATH` to compare another combination of the bundled versions.
 
-To add a package version or language, see the input and output contract for publishing keys and verifying messages. [Adapter contract](docs/compatibility-adapters.md)
+To add a package version or language, see the input and output contract for publishing keys and verifying messages. [Adapter contract](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/docs/compatibility-adapters.md)
 
-Each of the eight publisher/verifier combinations checks the published ES256 example from RFC 7515 and six outcomes from a rolling key change. Both Python versions also verify the RFC signature themselves. This gives 58 checks at fixed verification times. [RFC 7515, Appendix A.3](https://www.rfc-editor.org/rfc/rfc7515.html#appendix-A.3) · [Public fixtures](tink_compat/data/vectors.json)
+Each of the eight publisher/verifier combinations checks the published ES256 example from RFC 7515 and six outcomes from a rolling key change. Both Python versions also verify the RFC signature themselves. This gives 58 checks at fixed verification times. [RFC 7515, Appendix A.3](https://www.rfc-editor.org/rfc/rfc7515.html#appendix-A.3) · [Public fixtures](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/tink_compat/data/vectors.json)
 
 | Public keys deployed | Message signed by the old key | Message signed by the new key |
 | --- | --- | --- |
@@ -57,6 +57,6 @@ The CLI returns **0 / PASS** when every required row matches, **1 / FAIL** when 
 
 ## Historical corpus
 
-The original Python/Go comparison remains in the source checkout. Its summary now records which required port answered for each input. A missing runner gives an `INCOMPLETE` result. The signed release matrix above is the entry point for Java interoperability. [Historical harness](harnesses/py/differential.py) · [Original corpus](corpus_jwk/) · [Earlier project results](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/e6e0dc453692ecac6dde0a09c388efe0bbfbdef0/README.md)
+The original Python/Go comparison remains in the source checkout. Its summary now records which required port answered for each input. A missing runner gives an `INCOMPLETE` result. The signed release matrix above is the entry point for Java interoperability. [Historical harness](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/harnesses/py/differential.py) · [Original corpus](https://github.com/ibondarenko1/tink-cross-port-fuzz/tree/v0.1.0/corpus_jwk/) · [Earlier project results](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/e6e0dc453692ecac6dde0a09c388efe0bbfbdef0/README.md)
 
 Independent project maintained by Ievgen Bondarenko. [Apache 2.0 license](LICENSE)

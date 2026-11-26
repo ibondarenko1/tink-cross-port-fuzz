@@ -21,6 +21,8 @@ import tempfile
 import time
 from typing import Any, Callable, Mapping, Sequence
 
+from . import __version__
+
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent
 REPOSITORY_ROOT = PACKAGE_ROOT.parent
@@ -158,6 +160,8 @@ def _rotation_compact(rotation: Mapping[str, Any], name: str) -> str:
 def _validate_profile(profile: Mapping[str, Any]) -> tuple[list[str], dict[str, dict[str, str]]]:
     if profile.get("schema_version") != 1:
         raise ValueError("profile.schema_version must be 1")
+    if not isinstance(profile.get("name"), str) or not profile["name"].strip():
+        raise ValueError("profile.name must be a non-empty string")
     selected = profile.get("languages")
     if selected is None:
         selected = list(REQUIRED_LANGUAGES)
@@ -166,6 +170,9 @@ def _validate_profile(profile: Mapping[str, Any]) -> tuple[list[str], dict[str, 
     selected = [item.lower() for item in selected]
     if len(set(selected)) != len(selected):
         raise ValueError("profile.languages must not contain duplicates")
+    unknown = sorted(set(selected) - set(REQUIRED_LANGUAGES))
+    if unknown:
+        raise ValueError(f"profile.languages contains unsupported language(s): {', '.join(unknown)}")
     if "python" not in selected or not ({"go", "java"} & set(selected)) or len(selected) < 2:
         raise ValueError("profile.languages must include python and go or java")
     versions: dict[str, dict[str, str]] = {}
@@ -264,6 +271,9 @@ def _run_runner(
             command = _prepare_command(language, version, cache, offline, prepare_fn)
             commands[key] = command
         response = invoke(command, payload, REPOSITORY_ROOT)
+        if not isinstance(response, Mapping):
+            return RunnerResult(language, version, None, "runner response must be a JSON object")
+        response = dict(response)
     except Exception as exc:  # A failed adapter is an incomplete matrix cell.
         return RunnerResult(language, version, None, str(exc))
     reported = response.get("version")
@@ -746,7 +756,7 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--profile", type=pathlib.Path, default=DEFAULT_PROFILE)
     check.add_argument("--cache", type=pathlib.Path, default=_default_cache())
     check.add_argument("--offline", action="store_true")
-    check.add_argument("--revision", default=os.environ.get("TINK_COMPAT_REVISION", "unknown"))
+    check.add_argument("--revision", default=os.environ.get("TINK_COMPAT_REVISION", f"tink-release-compat@{__version__}"))
     return parser
 
 
