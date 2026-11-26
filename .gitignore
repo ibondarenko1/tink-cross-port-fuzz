@@ -3,7 +3,15 @@ __pycache__/
 *.pyc
 runners/go-runner/go-runner
 runners/go-runner/go-runner.exe
+runners/go-runner/compat
+runners/go-runner/compat.exe
+runners/java-runner/target/
 runners/cc-runner/cc-runner
 runners/java-runner.jar
 .venv/
 .vscode/
+/dist/
+/build/
+/compat-report/
+/compatibility-report/
+*.egg-info/

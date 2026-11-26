@@ -1,0 +1,66 @@
+name: Released action and wheel
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action-consumer:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Use the public action from an empty workspace
+        id: matrix
+        uses: ibondarenko1/tink-cross-port-fuzz@v0.1.0
+      - name: Check both public outputs
+        env:
+          REPORT: ${{ steps.matrix.outputs.report-json }}
+          MARKDOWN: ${{ steps.matrix.outputs.report-md }}
+          VERDICT: ${{ steps.matrix.outputs.status }}
+        run: |
+          test "$VERDICT" = PASS
+          test -s "$MARKDOWN"
+          python - "$REPORT" <<'PY'
+          import json, sys
+          from pathlib import Path
+          result = json.loads(Path(sys.argv[1]).read_text())
+          assert result["status"] == "PASS" and len(result["rows"]) == 58
+          assert result["summary"]["passed"] == 58
+          PY
+  wheel-consumer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.25.4'
+          cache: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install the release wheel and run it from an empty directory
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          tag="${RELEASE_TAG:-$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)}"
+          dest="$RUNNER_TEMP/downloads"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir "$dest" --pattern '*.whl' --pattern SHA256SUMS.txt
+          (cd "$dest" && sha256sum --check --ignore-missing SHA256SUMS.txt)
+          python -m venv "$RUNNER_TEMP/consumer"
+          "$RUNNER_TEMP/consumer/bin/python" -m pip install --no-deps "$dest"/*.whl
+          mkdir "$RUNNER_TEMP/work"
+          cd "$RUNNER_TEMP/work"
+          "$RUNNER_TEMP/consumer/bin/tink-compat" check --out report
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("report/report.json").read_text())
+          assert result["status"] == "PASS" and result["summary"]["passed"] == 58
+          PY

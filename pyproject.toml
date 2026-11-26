@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tink-release-compat"
+version = "0.1.0"
+description = "Compare released Tink packages using signed public fixtures and a rolling JWKS rotation."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{name = "Ievgen Bondarenko"}]
+keywords = ["tink", "jwks", "interoperability", "release-testing", "jwt"]
+
+[project.urls]
+Results = "https://ibondarenko1.github.io/tink-cross-port-fuzz/"
+Source = "https://github.com/ibondarenko1/tink-cross-port-fuzz"
+Releases = "https://github.com/ibondarenko1/tink-cross-port-fuzz/releases"
+
+[project.scripts]
+tink-compat = "tink_compat.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tink_compat"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"runners/go-runner/go.mod" = "tink_compat/_bundled/go-runner/go.mod"
+"runners/go-runner/go.sum" = "tink_compat/_bundled/go-runner/go.sum"
+"runners/go-runner/cmd/compat" = "tink_compat/_bundled/go-runner/cmd/compat"
+"runners/java-runner/pom.xml" = "tink_compat/_bundled/java-runner/pom.xml"
+"runners/java-runner/src/main" = "tink_compat/_bundled/java-runner/src/main"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/tink_compat",
+  "/runners/go-runner/go.mod",
+  "/runners/go-runner/go.sum",
+  "/runners/go-runner/cmd/compat",
+  "/runners/java-runner/pom.xml",
+  "/runners/java-runner/src/main",
+  "/pyproject.toml",
+  "/README.md",
+  "/LICENSE",
+]

@@ -1,5 +1,7 @@
 # java-runner
 
+The release CLI builds this JAR and starts it with `--compat` to verify the signed RFC and rotation fixtures. Run `tink-compat check --out compatibility-report` to exercise Java alongside the other ports. [Compatibility adapter contract](../../docs/compatibility-adapters.md)
+
 Subprocess runner for tink-java JWK Set converter. Reads a JWK Set
 from stdin, calls
 `com.google.crypto.tink.jwt.JwkSetConverter.toPublicKeysetHandle`,
@@ -31,7 +33,7 @@ java -jar target/tink-cross-port-java-runner-0.1.0.jar < input.json
   differential fuzzer this is treated as a contract-violation finding
   on the Java side.
 
-## Current findings already surfaced by the runner
+## Historical observations from the standalone runner
 
 - `{}` and `{"foo":1}` → REJECT_OTHER (NullPointerException because
   `jsonKeyset.get("keys").getAsJsonArray()` on a missing field returns

@@ -1,0 +1,26 @@
+name: Tink consumer compatibility
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check pinned Tink versions
+        id: tink-compat
+        uses: ibondarenko1/tink-cross-port-fuzz@v0.1.0
+        with:
+          out: artifacts/tink-compat
+      - name: Publish compatibility report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tink-compat-report
+          path: artifacts/tink-compat/
+          if-no-files-found: error

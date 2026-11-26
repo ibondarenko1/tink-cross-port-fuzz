@@ -26,7 +26,32 @@
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.7.0</version>
+        <executions>
+          <execution>
+            <id>write-tink-compat-provenance</id>
+            <phase>prepare-package</phase>
+            <goals><goal>list</goal></goals>
+            <configuration>
+              <includeGroupIds>com.google.crypto.tink</includeGroupIds>
+              <includeArtifactIds>tink</includeArtifactIds>
+              <excludeTransitive>true</excludeTransitive>
+              <sort>true</sort>
+              <outputFile>${project.build.outputDirectory}/META-INF/tink-compat/dependencies.txt</outputFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.5.0</version>

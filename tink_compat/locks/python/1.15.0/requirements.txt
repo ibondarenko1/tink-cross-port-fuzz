@@ -1,0 +1,7 @@
+# CPython 3.12 compatibility lock.  Runtime dependencies are pinned to the
+# versions resolved from PyPI on 2026-11-26.  Wheel hashes are intentionally
+# omitted because Tink and protobuf publish distinct artifacts per OS/ABI.
+tink==1.15.0
+absl-py==2.5.1
+bazel-runfiles==2.5.1
+protobuf==7.36.2

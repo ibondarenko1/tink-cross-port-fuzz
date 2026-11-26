@@ -1,0 +1,190 @@
+name: Tink compatibility report
+description: Run the pinned Tink producer/consumer compatibility matrix
+author: Ievgen Bondarenko
+inputs:
+  profile:
+    description: Path to a compatibility profile relative to the consumer workspace
+    required: false
+    default: ''
+  out:
+    description: Directory for report.json and report.md relative to the consumer workspace
+    required: false
+    default: compatibility-report
+  offline:
+    description: Use only adapters already present in the compatibility cache
+    required: false
+    default: 'false'
+outputs:
+  report-json:
+    description: Absolute path to the generated JSON report when one was written
+    value: ${{ steps.run.outputs.report-json }}
+  report-md:
+    description: Absolute path to the generated Markdown report when one was written
+    value: ${{ steps.run.outputs.report-md }}
+  status:
+    description: PASS, FAIL, or INCOMPLETE from the matrix
+    value: ${{ steps.run.outputs.status }}
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      with:
+        python-version: '3.12'
+    - name: Set up Go
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      with:
+        go-version: '1.25.4'
+        # The native source is shipped with this action, not the consumer
+        # checkout.  setup-go's automatic go.sum discovery is therefore both
+        # unnecessary and misleading for an empty consumer worktree.
+        cache: false
+    - name: Set up Java
+      uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      with:
+        distribution: temurin
+        java-version: '21'
+    - name: Compute runner cache key
+      id: cache-key
+      shell: bash
+      env:
+        TINK_COMPAT_ACTION_PATH: ${{ github.action_path }}
+        TINK_COMPAT_ACTION_REF: ${{ github.action_ref }}
+      run: |
+        set -euo pipefail
+        fingerprint=$(python - "$TINK_COMPAT_ACTION_PATH" "$TINK_COMPAT_ACTION_REF" <<'PY'
+        import hashlib
+        from pathlib import Path
+        import sys
+
+        action = Path(sys.argv[1])
+        ref = sys.argv[2] or "local"
+        digest = hashlib.sha256(ref.encode("utf-8"))
+        roots = (
+            action / "tink_compat" / "adapters",
+            action / "tink_compat" / "locks",
+            action / "tink_compat" / "prepare.py",
+            action / "runners",
+        )
+        files = []
+        for root in roots:
+            if root.is_file():
+                files.append(root)
+            elif root.is_dir():
+                files.extend(
+                    path
+                    for path in root.rglob("*")
+                    if path.is_file()
+                    and not any(part in {".git", "target", "__pycache__"} for part in path.parts)
+                    and path.name not in {"compat", "compat.exe"}
+                )
+        for path in sorted(files):
+            digest.update(str(path.relative_to(action)).replace("\\", "/").encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(path.read_bytes())
+        print(digest.hexdigest())
+        PY
+        )
+        echo "key=tink-compat-${RUNNER_OS}-${RUNNER_ARCH}-${fingerprint}" >> "$GITHUB_OUTPUT"
+    - name: Restore runner cache
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: ${{ github.workspace }}/.cache/tink-compat
+        key: ${{ steps.cache-key.outputs.key }}
+    - name: Run compatibility matrix
+      id: run
+      shell: bash
+      env:
+        TINK_COMPAT_ACTION_PATH: ${{ github.action_path }}
+        TINK_COMPAT_PROFILE_INPUT: ${{ inputs.profile }}
+        TINK_COMPAT_OUT_INPUT: ${{ inputs.out }}
+        TINK_COMPAT_OFFLINE_INPUT: ${{ inputs.offline }}
+        TINK_COMPAT_ACTION_REF: ${{ github.action_ref }}
+        TINK_COMPAT_ACTION_NAME: ${{ github.action }}
+      run: |
+        set +e
+        resolve_path() {
+          case "$1" in
+            /*) printf '%s\n' "$1" ;;
+            *) printf '%s/%s\n' "$GITHUB_WORKSPACE" "$1" ;;
+          esac
+        }
+        if [[ -z "$TINK_COMPAT_PROFILE_INPUT" ]]; then
+          profile="$TINK_COMPAT_ACTION_PATH/tink_compat/data/profile.json"
+        else
+          profile=$(resolve_path "$TINK_COMPAT_PROFILE_INPUT")
+        fi
+        out=$(resolve_path "$TINK_COMPAT_OUT_INPUT")
+        cache="$GITHUB_WORKSPACE/.cache/tink-compat"
+        action_ref="${TINK_COMPAT_ACTION_REF:-local}"
+        action_name="${TINK_COMPAT_ACTION_NAME:-local-action}"
+        revision="action:${action_name}@${action_ref}"
+        mkdir -p "$out"
+        # Retain the previous pair before invoking the checker.  This avoids
+        # publishing stale files after an early failure without discarding a
+        # user's earlier report; a successful check writes the new pair in the
+        # original output directory.
+        if [[ -f "$out/report.json" || -f "$out/report.md" ]]; then
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          snapshot="$out/snapshots/$stamp"
+          mkdir -p "$snapshot"
+          [[ ! -f "$out/report.json" ]] || mv "$out/report.json" "$snapshot/report.json"
+          [[ ! -f "$out/report.md" ]] || mv "$out/report.md" "$snapshot/report.md"
+        fi
+        args=(--out "$out" --profile "$profile" --cache "$cache" --revision "$revision")
+        if [[ "$TINK_COMPAT_OFFLINE_INPUT" == "true" ]]; then
+          args+=(--offline)
+        fi
+        (
+          cd "$TINK_COMPAT_ACTION_PATH"
+          PYTHONPATH="$TINK_COMPAT_ACTION_PATH${PYTHONPATH:+:$PYTHONPATH}" \
+            python -m tink_compat check "${args[@]}"
+        )
+        rc=$?
+        if [[ ! -f "$out/report.json" ]]; then
+          if [[ "$rc" -eq 0 ]]; then
+            rc=2
+          fi
+          python - "$out" "$revision" "$rc" <<'PY'
+        import json
+        from pathlib import Path
+        import sys
+
+        output = Path(sys.argv[1])
+        revision = sys.argv[2]
+        code = sys.argv[3]
+        report = {
+            "schema_version": 1,
+            "status": "INCOMPLETE",
+            "summary": {"total": 0, "passed": 0, "failed": 0, "incomplete": 0},
+            "rows": [],
+            "profile": {},
+            "revision": revision,
+            "runtimes": {},
+            "hashes": {},
+            "error": f"compatibility command exited {code} before writing a report",
+        }
+        output.mkdir(parents=True, exist_ok=True)
+        (output / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        (output / "report.md").write_text(
+            "# Tink compatibility report: INCOMPLETE\n\n"
+            f"Revision: `{revision}`\n\n"
+            f"The compatibility command exited {code} before writing its report.\n",
+            encoding="utf-8",
+        )
+        PY
+        fi
+        if [[ -f "$out/report.json" ]]; then
+          echo "report-json=$out/report.json" >> "$GITHUB_OUTPUT"
+          status=$(python -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("status", "INCOMPLETE"))' "$out/report.json")
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+        else
+          echo "status=INCOMPLETE" >> "$GITHUB_OUTPUT"
+        fi
+        if [[ -f "$out/report.md" ]]; then
+          echo "report-md=$out/report.md" >> "$GITHUB_OUTPUT"
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            cat "$out/report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        fi
+        exit "$rc"
