@@ -1,6 +1,8 @@
 # tink-cross-port-fuzz
 
-A differential fuzzer for [Google Tink](https://github.com/tink-crypto) that feeds the **same input** to multiple language ports of the Tink crypto library and reports any **divergence** in acceptance, error class, or returned key shape.
+This differential fuzzer compares how the Python and Go implementations of Tink read the same JSON Web Key Set (JWKS). It records whether each implementation accepts the input and which error it returns. [Google Tink](https://github.com/tink-crypto)
+
+A comparison with this tool confirmed that Tink Python accepted duplicate JSON fields in JWK Sets that Tink Go rejected. The fix shipped in Tink Python 1.15.0 on May 15, 2026. [Merged PR #76](https://github.com/tink-crypto/tink-py/pull/76) · [Tink Python 1.15.0 release notes](https://github.com/tink-crypto/tink-py/releases/tag/v1.15.0)
 
 ## Why
 
