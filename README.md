@@ -1,86 +1,62 @@
-# tink-cross-port-fuzz
+# Tink release compatibility
 
-This differential fuzzer compares how the Python and Go implementations of Tink read the same JSON Web Key Set (JWKS). It records whether each implementation accepts the input and which error it returns. [Google Tink](https://github.com/tink-crypto)
+Check whether Go and Java services can still verify signed JWTs while a Python service updates Tink or rotates its public keys. The CLI runs real, pinned Tink packages and produces a JSON report for CI and a Markdown report for upgrade reviews.
 
-A comparison with this tool confirmed that Tink Python accepted duplicate JSON fields in JWK Sets that Tink Go rejected. The fix shipped in Tink Python 1.15.0 on May 15, 2026. [Merged PR #76](https://github.com/tink-crypto/tink-py/pull/76) · [Tink Python 1.15.0 release notes](https://github.com/tink-crypto/tink-py/releases/tag/v1.15.0)
+[View the release results](https://ibondarenko1.github.io/tink-cross-port-fuzz/) · [Download v0.1.0](https://github.com/ibondarenko1/tink-cross-port-fuzz/releases/tag/v0.1.0) · [Copy the GitHub Actions workflow](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/examples/consumer.yml)
 
-## Why
+This project started as a comparison of Tink's JWK parsers. That work confirmed a duplicate-field discrepancy fixed in Tink Python 1.15.0. [Upstream PR #76](https://github.com/tink-crypto/tink-py/pull/76) · [Tink Python release notes](https://github.com/tink-crypto/tink-py/releases/tag/v1.15.0)
 
-Tink is implemented in C++, Go, Java, and Python with separate-but-parallel implementations of each crypto primitive. The four ports are expected to behave identically given the same input — but in practice they drift:
+## Run it in GitHub Actions
 
-| Port | JWK Set with `{"keys": "string"}` | JWK Set RSA-PSS with only `dp` field |
-| --- | --- | --- |
-| tink-cc | rejects (`keys is not a list`) | rejects (`private keys cannot be converted`) |
-| tink-go | rejects (`"keys" is not a list`) | rejects (`private key can't be converted`) |
-| tink-java | **uncaught `IllegalStateException`** | **silently accepts as public key** |
-| tink-py  | **uncaught `AttributeError`** | rejects |
+Copy [the complete workflow](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/examples/consumer.yml) to `.github/workflows/tink-compat.yml` in your repository. The action installs the toolchains and runs the included upgrade profile on an Ubuntu runner. This is the step that produces the reports.
 
-Each row above is a real divergence in HEAD as of 2026-04-27. They were found by hand. This tool automates the search.
-
-## Surface covered (current)
-
-- `JwkSetConverter.toPublicKeysetHandle(jwk_set)` — JWK Set → Tink keyset (RFC 7517)
-- `BinaryKeysetReader.read(bytes)` — protobuf Keyset deserialization (planned, milestone 2)
-
-## How it works
-
-For each input the harness asks every available runner what it does:
-
-```
-ACCEPT       — keyset constructed without error
-REJECT_TINK  — port-recognized error (TinkError / GeneralSecurityException / etc.)
-REJECT_OTHER — uncaught Python exception / Java unchecked exception (almost always a bug)
-TIMEOUT      — runner exceeded budget
+```yaml
+- name: Check Tink compatibility
+  id: tink
+  uses: ibondarenko1/tink-cross-port-fuzz@v0.1.0
+  with:
+    out: compatibility-report
 ```
 
-A `divergence` is when not all runners agree. Highest-priority report rows:
+The outputs are `status`, `report-json` and `report-md`. The example uploads both files even when the check fails, so a reviewer can see which combination failed and why.
 
-1. **`REJECT_OTHER` from any port** — uncaught exception is a contract violation; standalone bug
-2. **`ACCEPT` from one port + `REJECT_TINK` from another** — semantic disagreement; potential cross-port confusion attack vector
-3. **`ACCEPT` from all but one port** — outlier rejecting valid input or accepting invalid input
+## Install the CLI
 
-## Quick start
+The release is tested on Linux x86_64 with Python 3.12, Go 1.25.4, JDK 21 and Maven 3.9. Install the wheel into a virtual environment. The first check downloads the pinned libraries and builds the Go and Java runners.
 
 ```bash
-# install runners (Python is the only required port; others are optional)
-pip install -r requirements.txt
-# go install ./runners/go-runner   (optional)
-
-# run on the bundled known-divergence corpus
-python harnesses/py/differential.py corpus_jwk/
-
-# fuzz with atheris (libFuzzer engine)
-python harnesses/py/atheris_jwk.py corpus_jwk/
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install https://github.com/ibondarenko1/tink-cross-port-fuzz/releases/download/v0.1.0/tink_release_compat-0.1.0-py3-none-any.whl
+tink-compat check --out compatibility-report
 ```
 
-Each divergence is written to `reports/<sha1-of-input>.json` with the full per-port outcome.
+Open `compatibility-report/report.md` for the comparison or read `report.json` in CI. A second run against the same adapter cache can use `--offline`. To choose a cache explicitly, pass `--cache DIRECTORY` on both runs. The wheel, source distribution, measured reports and SHA-256 manifest are available together. [Release downloads](https://github.com/ibondarenko1/tink-cross-port-fuzz/releases/tag/v0.1.0)
 
-## Status
+## What the upgrade check measures
 
-**Milestone 1 — done 2026-04-28:** Python and Go runners on JWK Set converter.
+| Role | Baseline | Candidate |
+| --- | --- | --- |
+| Python publishes public JWK Sets | Tink 1.14.1 | Tink 1.15.0 |
+| Go verifies compact signatures | Tink Go 2.4.0 | Tink Go 2.5.0 |
+| Java verifies compact signatures | Tink Java 1.18.0 | Tink Java 1.18.0 |
 
-End-to-end validated on Linux + Windows: 11/16 seed-corpus inputs flagged as cross-port divergences (`py:REJECT_OTHER` vs `go:REJECT_TINK`). Sample report row:
+Each Python publisher runs against both verifier configurations. Keeping Java fixed tests whether a service can stay on its current version while its Python peer upgrades. Reviewers can compare a mixed deployment with the fully upgraded one. The package versions are defined in the [release profile](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/tink_compat/data/profile.json). Use `--profile PATH` to compare another combination of the bundled versions.
 
-```
-DIVERGENCE  01_alg_int.json   -> py:REJECT_OTHER (AttributeError)  / go:REJECT_TINK ("alg" is not a string)
-DIVERGENCE  02_x_int.json     -> py:REJECT_OTHER (AttributeError)  / go:REJECT_TINK ("x" is not a string)
-DIVERGENCE  06_kid_int.json   -> py:REJECT_OTHER (TypeError)        / go:REJECT_TINK ("kid" is not a string)
-DIVERGENCE  11_keys_int.json  -> py:REJECT_OTHER (TypeError)        / go:REJECT_TINK ("keys" is not a list)
-DIVERGENCE  14_keys_array_of_int.json -> py:REJECT_OTHER (AttributeError) / go:REJECT_TINK
-agree       09_no_keys.json   -> py:REJECT_TINK / go:REJECT_TINK
-agree       16_valid_es256_baseline.json -> py:ACCEPT / go:ACCEPT
-```
+To add a package version or language, see the input and output contract for publishing keys and verifying messages. [Adapter contract](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/docs/compatibility-adapters.md)
 
-The seed-corpus alone matches the bug class that was filed via Google OSS VRP (tracker `5332419769532416`, tink-java JwkSetConverter port-regression).
+Each of the eight publisher/verifier combinations checks the published ES256 example from RFC 7515 and six outcomes from a rolling key change. Both Python versions also verify the RFC signature themselves. This gives 58 checks at fixed verification times. [RFC 7515, Appendix A.3](https://www.rfc-editor.org/rfc/rfc7515.html#appendix-A.3) · [Public fixtures](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/tink_compat/data/vectors.json)
 
-**Milestone 2 — planned:** Java runner via subprocess wrapper around `JwkSetConverter`. C++ runner via Bazel-built CLI.
+| Public keys deployed | Message signed by the old key | Message signed by the new key |
+| --- | --- | --- |
+| Old key | Verified | Rejected |
+| Old and new keys | Verified | Verified |
+| New key | Rejected | Verified |
 
-**Milestone 3 — planned:** Add proto Keyset deserialization surface; structured corpus mining via libFuzzer + atheris.
+The CLI returns **0 / PASS** when every required row matches, **1 / FAIL** when all required checks ran and an outcome differs, and **2 / INCOMPLETE** when a required result is missing. The JSON preserves individual failures even if another row is incomplete. Results cover these ES256 messages, public keys and package versions. They support a release decision alongside application-specific tests.
 
-## License
+## Historical corpus
 
-Apache 2.0. Tink itself is Apache 2.0; this harness is independent and only consumes the public APIs.
+The original Python/Go comparison remains in the source checkout. Its summary now records which required port answered for each input. A missing runner gives an `INCOMPLETE` result. The signed release matrix above is the entry point for Java interoperability. [Historical harness](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/v0.1.0/harnesses/py/differential.py) · [Original corpus](https://github.com/ibondarenko1/tink-cross-port-fuzz/tree/v0.1.0/corpus_jwk/) · [Earlier project results](https://github.com/ibondarenko1/tink-cross-port-fuzz/blob/e6e0dc453692ecac6dde0a09c388efe0bbfbdef0/README.md)
 
-## Reporter
-
-Ievgen Bondarenko ([@ibondarenko1](https://github.com/ibondarenko1)). Bug reports, PRs, and divergence corpora welcome.
+Independent project maintained by Ievgen Bondarenko. [Apache 2.0 license](LICENSE)

@@ -1,0 +1,2 @@
+tink_compat/data/*.json text eol=lf
+tink_compat/locks/** text eol=lf
