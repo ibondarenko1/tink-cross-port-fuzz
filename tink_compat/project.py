@@ -199,6 +199,13 @@ def _export_inputs(
 
 def _write_json_atomic(path: Path, value: Mapping[str, Any]) -> None:
     temporary = path.with_name(path.name + ".tmp")
+    if temporary.is_symlink():
+        raise ProjectInputError(f"export sidecar temporary path is a symlink: {temporary.name}")
+    try:
+        if temporary.exists() and temporary.resolve().parent != path.resolve().parent:
+            raise ProjectInputError("export sidecar temporary path points outside the project checkout")
+    except OSError as exc:
+        raise ProjectInputError(f"cannot inspect export sidecar temporary path: {exc}") from exc
     temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     temporary.replace(path)
 
@@ -714,6 +721,7 @@ def _resolve_side(
         go_manifest["resolution"] = "go-list-export" if go_list is not None else "go-list-readonly"
         go_manifest["declared_version"] = declared
         go_manifest["resolved_version"] = resolved
+        go_manifest["independent_execution"] = go_list is None
         manifests.extend([go_manifest, list_manifest])
         if go_sum_manifest is not None:
             manifests.append(go_sum_manifest)

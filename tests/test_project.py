@@ -154,7 +154,7 @@ def test_ignored_export_cannot_be_attached_to_exact_revision(tmp_path: Path):
     roots: list[Path] = []
     revisions: list[str] = []
     for name, python, go in (("base", "1.15.0", "2.5.0"), ("head", "1.16.1", "2.9.0")):
-        root = _checkout(tmp_path / name, python=python, go=go)
+        root = _checkout(tmp_path / name, python=python, go=go, go_list=_go_list(go))
         roots.append(root)
         (root / ".gitignore").write_text("go-list.json*\n", encoding="utf-8")
         subprocess.run([git, "-C", str(root), "init", "-q"], check=True)
