@@ -4,6 +4,8 @@ Can you upgrade a Go verifier before the Python service that publishes its keys?
 
 [Release results](https://ibondarenko1.github.io/tink-cross-port-fuzz/v0.2.0/) Â· [Install v0.2.0](https://github.com/ibondarenko1/tink-cross-port-fuzz/releases/tag/v0.2.0) Â· [Copy the workflow](examples/consumer.yml)
 
+**Measured upgrade.** The billing verifier moved from Tink Go 2.5.0 to 2.9.0 while its Python publisher stayed on 1.16.1. All 48 checks passed, and the example service built and verified its signed billing message on 2.9.0. [Upgrade PR #3](https://github.com/ibondarenko1/tink-cross-port-fuzz/pull/3) ? [Project report](examples/reports/billing-verifier-go-2.9.0.json)
+
 ## Check a pull request
 
 For a repository with an exact Python pin in `requirements.txt` and a Go module at its root, copy [consumer.yml](examples/consumer.yml) into `.github/workflows/tink-compat.yml`. The job needs `contents: read`. The Action checks out the base and head SHAs and posts the result in the job summary.

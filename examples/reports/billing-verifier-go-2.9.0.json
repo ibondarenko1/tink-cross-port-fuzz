@@ -1,0 +1,937 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "summary": {
+    "total": 48,
+    "passed": 48,
+    "failed": 0,
+    "incomplete": 0
+  },
+  "rows": [
+    {
+      "id": "rfc-baseline-baseline-go",
+      "scenario": "rfc-7515",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rfc-baseline-candidate-go",
+      "scenario": "rfc-7515",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rfc-candidate-baseline-go",
+      "scenario": "rfc-7515",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rfc-candidate-candidate-go",
+      "scenario": "rfc-7515",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rfc-python-self-baseline",
+      "scenario": "rfc-7515-python-control",
+      "producer": "python@1.16.1",
+      "consumer": "python@1.16.1",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rfc-python-self-candidate",
+      "scenario": "rfc-7515-python-control",
+      "producer": "python@1.16.1",
+      "consumer": "python@1.16.1",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rfc-rsa-baseline-baseline-go",
+      "scenario": "rfc-7515-rs256",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rfc-rsa-baseline-candidate-go",
+      "scenario": "rfc-7515-rs256",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rfc-rsa-candidate-baseline-go",
+      "scenario": "rfc-7515-rs256",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rfc-rsa-candidate-candidate-go",
+      "scenario": "rfc-7515-rs256",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rfc-rsa-python-self-baseline",
+      "scenario": "rfc-7515-rs256-python-control",
+      "producer": "python@1.16.1",
+      "consumer": "python@1.16.1",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rfc-rsa-python-self-candidate",
+      "scenario": "rfc-7515-rs256-python-control",
+      "producer": "python@1.16.1",
+      "consumer": "python@1.16.1",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-baseline-baseline-go-initial-new",
+      "scenario": "rotation-initial",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-baseline-baseline-go-initial-old",
+      "scenario": "rotation-initial",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-baseline-baseline-go-overlap-new",
+      "scenario": "rotation-overlap",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-baseline-baseline-go-overlap-old",
+      "scenario": "rotation-overlap",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-baseline-baseline-go-retired-new",
+      "scenario": "rotation-retired",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-baseline-baseline-go-retired-old",
+      "scenario": "rotation-retired",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-baseline-candidate-go-initial-new",
+      "scenario": "rotation-initial",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-baseline-candidate-go-initial-old",
+      "scenario": "rotation-initial",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-baseline-candidate-go-overlap-new",
+      "scenario": "rotation-overlap",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-baseline-candidate-go-overlap-old",
+      "scenario": "rotation-overlap",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-baseline-candidate-go-retired-new",
+      "scenario": "rotation-retired",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-baseline-candidate-go-retired-old",
+      "scenario": "rotation-retired",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-candidate-baseline-go-initial-new",
+      "scenario": "rotation-initial",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-candidate-baseline-go-initial-old",
+      "scenario": "rotation-initial",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-candidate-baseline-go-overlap-new",
+      "scenario": "rotation-overlap",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-candidate-baseline-go-overlap-old",
+      "scenario": "rotation-overlap",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-candidate-baseline-go-retired-new",
+      "scenario": "rotation-retired",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-candidate-baseline-go-retired-old",
+      "scenario": "rotation-retired",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rotation-candidate-candidate-go-initial-new",
+      "scenario": "rotation-initial",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-candidate-candidate-go-initial-old",
+      "scenario": "rotation-initial",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-candidate-candidate-go-overlap-new",
+      "scenario": "rotation-overlap",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-candidate-candidate-go-overlap-old",
+      "scenario": "rotation-overlap",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-candidate-candidate-go-retired-new",
+      "scenario": "rotation-retired",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rotation-candidate-candidate-go-retired-old",
+      "scenario": "rotation-retired",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rsa-baseline-baseline-go-audience",
+      "scenario": "rsa-jwt-audience",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rsa-baseline-baseline-go-wrong-audience",
+      "scenario": "rsa-jwt-audience",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rsa-baseline-candidate-go-audience",
+      "scenario": "rsa-jwt-audience",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rsa-baseline-candidate-go-wrong-audience",
+      "scenario": "rsa-jwt-audience",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rsa-candidate-baseline-go-audience",
+      "scenario": "rsa-jwt-audience",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rsa-candidate-baseline-go-wrong-audience",
+      "scenario": "rsa-jwt-audience",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.5.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rsa-candidate-candidate-go-audience",
+      "scenario": "rsa-jwt-audience",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rsa-candidate-candidate-go-wrong-audience",
+      "scenario": "rsa-jwt-audience",
+      "producer": "python@1.16.1",
+      "consumer": "go@2.9.0",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rsa-python-self-baseline",
+      "scenario": "rsa-jwt-audience-python-control",
+      "producer": "python@1.16.1",
+      "consumer": "python@1.16.1",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rsa-python-self-candidate",
+      "scenario": "rsa-jwt-audience-python-control",
+      "producer": "python@1.16.1",
+      "consumer": "python@1.16.1",
+      "expected": "verified",
+      "actual": "verified",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    },
+    {
+      "id": "rsa-python-wrong-audience-baseline",
+      "scenario": "rsa-jwt-audience-python-control",
+      "producer": "python@1.16.1",
+      "consumer": "python@1.16.1",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "baseline",
+      "consumer_phase": "baseline"
+    },
+    {
+      "id": "rsa-python-wrong-audience-candidate",
+      "scenario": "rsa-jwt-audience-python-control",
+      "producer": "python@1.16.1",
+      "consumer": "python@1.16.1",
+      "expected": "rejected",
+      "actual": "rejected",
+      "status": "PASS",
+      "producer_phase": "candidate",
+      "consumer_phase": "candidate"
+    }
+  ],
+  "decision": {
+    "schema_version": 1,
+    "deltas": [
+      {
+        "scenario": "rfc-7515",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rfc-baseline-baseline-go",
+        "after_id": "rfc-candidate-candidate-go"
+      },
+      {
+        "scenario": "rfc-7515-python-control",
+        "producer": "python",
+        "consumer": "python",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rfc-python-self-baseline",
+        "after_id": "rfc-python-self-candidate"
+      },
+      {
+        "scenario": "rfc-7515-rs256",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rfc-rsa-baseline-baseline-go",
+        "after_id": "rfc-rsa-candidate-candidate-go"
+      },
+      {
+        "scenario": "rfc-7515-rs256-python-control",
+        "producer": "python",
+        "consumer": "python",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rfc-rsa-python-self-baseline",
+        "after_id": "rfc-rsa-python-self-candidate"
+      },
+      {
+        "scenario": "rotation-initial",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rotation-baseline-baseline-go-initial-new",
+        "after_id": "rotation-candidate-candidate-go-initial-new"
+      },
+      {
+        "scenario": "rotation-initial",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rotation-baseline-baseline-go-initial-old",
+        "after_id": "rotation-candidate-candidate-go-initial-old"
+      },
+      {
+        "scenario": "rotation-overlap",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rotation-baseline-baseline-go-overlap-new",
+        "after_id": "rotation-candidate-candidate-go-overlap-new"
+      },
+      {
+        "scenario": "rotation-overlap",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rotation-baseline-baseline-go-overlap-old",
+        "after_id": "rotation-candidate-candidate-go-overlap-old"
+      },
+      {
+        "scenario": "rotation-retired",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rotation-baseline-baseline-go-retired-new",
+        "after_id": "rotation-candidate-candidate-go-retired-new"
+      },
+      {
+        "scenario": "rotation-retired",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rotation-baseline-baseline-go-retired-old",
+        "after_id": "rotation-candidate-candidate-go-retired-old"
+      },
+      {
+        "scenario": "rsa-jwt-audience",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rsa-baseline-baseline-go-audience",
+        "after_id": "rsa-candidate-candidate-go-audience"
+      },
+      {
+        "scenario": "rsa-jwt-audience",
+        "producer": "python",
+        "consumer": "go",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rsa-baseline-baseline-go-wrong-audience",
+        "after_id": "rsa-candidate-candidate-go-wrong-audience"
+      },
+      {
+        "scenario": "rsa-jwt-audience-python-control",
+        "producer": "python",
+        "consumer": "python",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rsa-python-self-baseline",
+        "after_id": "rsa-python-self-candidate"
+      },
+      {
+        "scenario": "rsa-jwt-audience-python-control",
+        "producer": "python",
+        "consumer": "python",
+        "before": "pass",
+        "after": "pass",
+        "kind": "unchanged",
+        "before_id": "rsa-python-wrong-audience-baseline",
+        "after_id": "rsa-python-wrong-audience-candidate"
+      }
+    ],
+    "delta_summary": {
+      "unchanged": 14
+    },
+    "rollout": {
+      "overall": "either",
+      "lanes": {
+        "go": {
+          "states": {
+            "baseline": "pass",
+            "publisher_first": "pass",
+            "verifier_first": "pass",
+            "final": "pass"
+          },
+          "decision": "either"
+        }
+      }
+    }
+  },
+  "profile": {
+    "baseline": {
+      "go": "2.5.0",
+      "python": "1.16.1"
+    },
+    "candidate": {
+      "go": "2.9.0",
+      "python": "1.16.1"
+    },
+    "languages": [
+      "python",
+      "go"
+    ],
+    "name": "project-upgrade",
+    "schema_version": 1,
+    "source": "resolved-project"
+  },
+  "project": {
+    "schema_version": 1,
+    "source": "resolved-project",
+    "baseline": {
+      "revision": "92726fbbff9db7b66c8075a5ea54b11c480f0683",
+      "revision_exact": true,
+      "languages": {
+        "python": {
+          "path": "examples/services/publisher/requirements.txt",
+          "kind": "python-lock",
+          "sha256": "45b2695ba3ae8acd2a0e587a86006b7a55a6d2cf47d5581e5b7e8fbf040b5fcc",
+          "declared_version": "1.16.1",
+          "resolved_version": "1.16.1",
+          "resolution": "exact-requirement"
+        },
+        "go": {
+          "path": "examples/services/verifier/go.mod",
+          "kind": "go-module",
+          "sha256": "cae142e6a9ce24784b9c9baed8b09d0de5144c9531804b515fe38e98b58a421d",
+          "declared_version": "2.5.0",
+          "resolved_version": "2.5.0",
+          "go_version": "1.24.0",
+          "module_path": "github.com/tink-crypto/tink-go/v2",
+          "graph_sha256": "eb0279a434fff6b116e942bf279ffaf9374bbc6f92a8500abfd67c7a22dba7db",
+          "graph_hash_method": "sha256-canonical-go-module-graph",
+          "resolution": "go-list-readonly",
+          "independent_execution": true
+        }
+      },
+      "manifests": [
+        {
+          "path": "examples/services/publisher/requirements.txt",
+          "kind": "python-lock",
+          "sha256": "45b2695ba3ae8acd2a0e587a86006b7a55a6d2cf47d5581e5b7e8fbf040b5fcc",
+          "declared_version": "1.16.1",
+          "resolved_version": "1.16.1",
+          "resolution": "exact-requirement"
+        },
+        {
+          "path": "examples/services/verifier/go.mod",
+          "kind": "go-module",
+          "sha256": "cae142e6a9ce24784b9c9baed8b09d0de5144c9531804b515fe38e98b58a421d",
+          "declared_version": "2.5.0",
+          "resolved_version": "2.5.0",
+          "go_version": "1.24.0",
+          "module_path": "github.com/tink-crypto/tink-go/v2",
+          "graph_sha256": "eb0279a434fff6b116e942bf279ffaf9374bbc6f92a8500abfd67c7a22dba7db",
+          "graph_hash_method": "sha256-canonical-go-module-graph",
+          "resolution": "go-list-readonly",
+          "independent_execution": true
+        },
+        {
+          "path": null,
+          "kind": "go-list",
+          "sha256": "a7f3c4a74e38b5aa263887ba786c608bd12e9b40c85c2e32707ee057d46b6155",
+          "source": "go list -mod=readonly -m -json all",
+          "provenance": "executed-readonly-go-list",
+          "resolution_claim": "module-graph"
+        },
+        {
+          "path": "examples/services/verifier/go.sum",
+          "kind": "go-checksum-support",
+          "sha256": "ec9ee2d8fc50a994da7f112c6ec7697633c8ae93b069251665d5356633d164b9",
+          "is_lock": false
+        }
+      ],
+      "used_paths": [
+        "examples/services/publisher/requirements.txt",
+        "examples/services/verifier/go.mod",
+        "examples/services/verifier/go.sum"
+      ]
+    },
+    "candidate": {
+      "revision": "6f18c71ae44e8d316023c8f677d2a53554706df6",
+      "revision_exact": true,
+      "languages": {
+        "python": {
+          "path": "examples/services/publisher/requirements.txt",
+          "kind": "python-lock",
+          "sha256": "45b2695ba3ae8acd2a0e587a86006b7a55a6d2cf47d5581e5b7e8fbf040b5fcc",
+          "declared_version": "1.16.1",
+          "resolved_version": "1.16.1",
+          "resolution": "exact-requirement"
+        },
+        "go": {
+          "path": "examples/services/verifier/go.mod",
+          "kind": "go-module",
+          "sha256": "04724a8a27730db1d322195e7763aa955b098b8b000ba2fe0964d5412936201b",
+          "declared_version": "2.9.0",
+          "resolved_version": "2.9.0",
+          "go_version": "1.25.0",
+          "module_path": "github.com/tink-crypto/tink-go/v2",
+          "graph_sha256": "905e7351bd65450306c10feae76180d6ea02534b39df94aff58348433e272e14",
+          "graph_hash_method": "sha256-canonical-go-module-graph",
+          "resolution": "go-list-readonly",
+          "independent_execution": true
+        }
+      },
+      "manifests": [
+        {
+          "path": "examples/services/publisher/requirements.txt",
+          "kind": "python-lock",
+          "sha256": "45b2695ba3ae8acd2a0e587a86006b7a55a6d2cf47d5581e5b7e8fbf040b5fcc",
+          "declared_version": "1.16.1",
+          "resolved_version": "1.16.1",
+          "resolution": "exact-requirement"
+        },
+        {
+          "path": "examples/services/verifier/go.mod",
+          "kind": "go-module",
+          "sha256": "04724a8a27730db1d322195e7763aa955b098b8b000ba2fe0964d5412936201b",
+          "declared_version": "2.9.0",
+          "resolved_version": "2.9.0",
+          "go_version": "1.25.0",
+          "module_path": "github.com/tink-crypto/tink-go/v2",
+          "graph_sha256": "905e7351bd65450306c10feae76180d6ea02534b39df94aff58348433e272e14",
+          "graph_hash_method": "sha256-canonical-go-module-graph",
+          "resolution": "go-list-readonly",
+          "independent_execution": true
+        },
+        {
+          "path": null,
+          "kind": "go-list",
+          "sha256": "80e50cebe7f4cd0dcce42545450f9304e9d049997ccb65fc60a2dde06ed5405c",
+          "source": "go list -mod=readonly -m -json all",
+          "provenance": "executed-readonly-go-list",
+          "resolution_claim": "module-graph"
+        },
+        {
+          "path": "examples/services/verifier/go.sum",
+          "kind": "go-checksum-support",
+          "sha256": "8f5a1f8217c1694587691e6a8a4751e6cc56b5d18d186b2ca8f5092c0f755c51",
+          "is_lock": false
+        }
+      ],
+      "used_paths": [
+        "examples/services/publisher/requirements.txt",
+        "examples/services/verifier/go.mod",
+        "examples/services/verifier/go.sum"
+      ]
+    },
+    "base_revision": "92726fbbff9db7b66c8075a5ea54b11c480f0683",
+    "head_revision": "6f18c71ae44e8d316023c8f677d2a53554706df6",
+    "revisions": {
+      "baseline": "92726fbbff9db7b66c8075a5ea54b11c480f0683",
+      "candidate": "6f18c71ae44e8d316023c8f677d2a53554706df6"
+    },
+    "manifest_hashes": {
+      "baseline": [
+        "45b2695ba3ae8acd2a0e587a86006b7a55a6d2cf47d5581e5b7e8fbf040b5fcc",
+        "cae142e6a9ce24784b9c9baed8b09d0de5144c9531804b515fe38e98b58a421d",
+        "a7f3c4a74e38b5aa263887ba786c608bd12e9b40c85c2e32707ee057d46b6155",
+        "ec9ee2d8fc50a994da7f112c6ec7697633c8ae93b069251665d5356633d164b9"
+      ],
+      "candidate": [
+        "45b2695ba3ae8acd2a0e587a86006b7a55a6d2cf47d5581e5b7e8fbf040b5fcc",
+        "04724a8a27730db1d322195e7763aa955b098b8b000ba2fe0964d5412936201b",
+        "80e50cebe7f4cd0dcce42545450f9304e9d049997ccb65fc60a2dde06ed5405c",
+        "8f5a1f8217c1694587691e6a8a4751e6cc56b5d18d186b2ca8f5092c0f755c51"
+      ]
+    }
+  },
+  "revision": "92726fbbff9db7b66c8075a5ea54b11c480f0683",
+  "runtimes": {
+    "python@1.16.1": "python 3.12.16",
+    "go@2.5.0": "go go1.25.11 linux/amd64",
+    "go@2.9.0": "go go1.25.11 linux/amd64"
+  },
+  "attestations": {
+    "baseline": {
+      "python": {
+        "language": "python",
+        "phase": "baseline",
+        "requested_version": "1.16.1",
+        "adapter_version": "1.16.1",
+        "runtime": "python 3.12.16",
+        "operation": "publish",
+        "source": "adapter-response",
+        "status": "verified"
+      },
+      "go": {
+        "language": "go",
+        "phase": "baseline",
+        "requested_version": "2.5.0",
+        "adapter_version": "2.5.0",
+        "runtime": "go go1.25.11 linux/amd64",
+        "operation": "verify",
+        "source": "adapter-response",
+        "status": "verified"
+      }
+    },
+    "candidate": {
+      "python": {
+        "language": "python",
+        "phase": "candidate",
+        "requested_version": "1.16.1",
+        "adapter_version": "1.16.1",
+        "runtime": "python 3.12.16",
+        "operation": "publish",
+        "source": "adapter-response",
+        "status": "verified"
+      },
+      "go": {
+        "language": "go",
+        "phase": "candidate",
+        "requested_version": "2.9.0",
+        "adapter_version": "2.9.0",
+        "runtime": "go go1.25.11 linux/amd64",
+        "operation": "verify",
+        "source": "adapter-response",
+        "status": "verified"
+      }
+    }
+  },
+  "hashes": {
+    "profile_sha256": "bf1ebf169c11716f532d9934039fd4fb7ab6382c798b34c942ab51b57e67ee5f",
+    "vectors_sha256": "94f9927acdf5c7582c906b56c6615346f0d6017bf0a89e53844ac4fb855a204b"
+  }
+}
