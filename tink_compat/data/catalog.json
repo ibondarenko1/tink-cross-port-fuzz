@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-11-26",
+  "source_policy": "official release metadata and exact lock files committed with this tool",
+  "languages": {
+    "python": {
+      "package": "tink",
+      "release_api": "https://pypi.org/pypi/tink/json",
+      "versions": {
+        "1.14.1": {
+          "lock": "tink_compat/locks/python/1.14.1/requirements.txt",
+          "release": "https://pypi.org/project/tink/1.14.1/"
+        },
+        "1.15.0": {
+          "lock": "tink_compat/locks/python/1.15.0/requirements.txt",
+          "release": "https://pypi.org/project/tink/1.15.0/"
+        },
+        "1.16.1": {
+          "lock": "tink_compat/locks/python/1.16.1/requirements.txt",
+          "release": "https://pypi.org/project/tink/1.16.1/"
+        }
+      }
+    },
+    "go": {
+      "module": "github.com/tink-crypto/tink-go/v2",
+      "release_api": "https://api.github.com/repos/tink-crypto/tink-go/releases/latest",
+      "versions": {
+        "2.4.0": {
+          "lock": "runners/go-runner/go.mod",
+          "release": "https://github.com/tink-crypto/tink-go/releases/tag/v2.4.0"
+        },
+        "2.5.0": {
+          "lock": "tink_compat/locks/go/2.5.0/go.mod",
+          "release": "https://github.com/tink-crypto/tink-go/releases/tag/v2.5.0"
+        },
+        "2.9.0": {
+          "lock": "tink_compat/locks/go/2.9.0/go.mod",
+          "release": "https://github.com/tink-crypto/tink-go/releases/tag/v2.9.0"
+        }
+      }
+    },
+    "java": {
+      "group": "com.google.crypto.tink",
+      "artifact": "tink",
+      "release_api": "https://repo1.maven.org/maven2/com/google/crypto/tink/tink/maven-metadata.xml",
+      "versions": {
+        "1.18.0": {
+          "release": "https://central.sonatype.com/artifact/com.google.crypto.tink/tink/1.18.0",
+          "protobuf": "4.28.2"
+        },
+        "1.24.0": {
+          "release": "https://central.sonatype.com/artifact/com.google.crypto.tink/tink/1.24.0",
+          "protobuf": "4.33.6"
+        }
+      }
+    }
+  }
+}

@@ -11,11 +11,13 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import platform
 from pathlib import Path
 import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import venv
 
@@ -25,12 +27,8 @@ else:
     import fcntl
 
 
-SUPPORTED = {
-    "python": {"1.14.1", "1.15.0"},
-    "go": {"2.4.0", "2.5.0"},
-    "java": {"1.18.0"},
-}
 LOCK_TIMEOUT_SECONDS = 900
+SUPPORTED: dict[str, set[str]]
 
 
 class PrepareError(RuntimeError):
@@ -45,6 +43,140 @@ def _project_root() -> Path:
     # Wheels keep native sources under ``tink_compat/_bundled`` while Python
     # lock files remain next to this module.
     return package_root
+
+
+def _catalog_path(project_root: Path) -> Path:
+    candidates = (
+        project_root / "tink_compat" / "data" / "catalog.json",
+        project_root / "data" / "catalog.json",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise PrepareError("Tink release catalog is missing")
+
+
+def _catalog(project_root: Path) -> dict:
+    try:
+        value = json.loads(_catalog_path(project_root).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PrepareError("Tink release catalog is unreadable") from exc
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
+        raise PrepareError("Tink release catalog has an unsupported schema")
+    languages = value.get("languages")
+    if not isinstance(languages, dict):
+        raise PrepareError("Tink release catalog has no languages")
+    return value
+
+
+def _catalog_record(project_root: Path, language: str, version: str) -> dict:
+    languages = _catalog(project_root)["languages"]
+    language_record = languages.get(language)
+    if not isinstance(language_record, dict):
+        raise PrepareError(f"catalog has no {language} adapter")
+    versions = language_record.get("versions")
+    if not isinstance(versions, dict) or not isinstance(versions.get(version), dict):
+        raise PrepareError(f"catalog has no {language} version {version}")
+    return dict(versions[version])
+
+
+def _catalog_supported(project_root: Path) -> dict[str, set[str]]:
+    languages = _catalog(project_root)["languages"]
+    supported: dict[str, set[str]] = {}
+    for language, language_record in languages.items():
+        if not isinstance(language, str) or not isinstance(language_record, dict):
+            continue
+        versions = language_record.get("versions")
+        if not isinstance(versions, dict):
+            continue
+        supported[language] = {str(version) for version in versions}
+    return supported
+
+
+SUPPORTED = _catalog_supported(_project_root())
+
+
+def _toolchain_fingerprint(language: str) -> bytes:
+    """Return stable runner/platform identity for an adapter cache key."""
+    identity = [platform.system(), platform.machine(), platform.python_implementation()]
+    if language == "python":
+        identity.append(platform.python_version())
+    else:
+        executables = (("go", ["version"]),) if language == "go" else (
+            ("java", ["-version"]),
+            ("mvn", ["-version"]),
+        )
+        for executable, command_suffix in executables:
+            found = shutil.which(executable) or "missing"
+            identity.append(f"{executable}:{found}")
+            if found == "missing":
+                identity.append("unavailable")
+                continue
+            try:
+                result = subprocess.run(
+                    [found, *command_suffix], capture_output=True, text=True, timeout=10, check=False
+                )
+                identity.append((result.stdout or result.stderr).strip())
+            except (OSError, subprocess.TimeoutExpired):
+                identity.append("unavailable")
+    return "\0".join(identity).encode("utf-8")
+
+
+def _adapter_inputs(project_root: Path, language: str, version: str) -> list[tuple[str, Path]]:
+    inputs: list[tuple[str, Path]] = []
+    if language == "python":
+        adapter = project_root / "adapters" / "python_adapter.py"
+        if not adapter.is_file():
+            adapter = project_root / "tink_compat" / "adapters" / "python_adapter.py"
+        inputs.extend(
+            [
+                ("python-lock", _python_lock(project_root, version)),
+                ("python-adapter", adapter),
+            ]
+        )
+    elif language == "go":
+        source = _go_source(project_root)
+        lock = _go_lock(project_root, version)
+        inputs.extend(
+            [
+                ("go-source", source),
+                ("go-mod", lock / "go.mod"),
+                ("go-sum", lock / "go.sum"),
+            ]
+        )
+    else:
+        source = project_root / "runners" / "java-runner"
+        if not source.is_dir():
+            source = project_root / "_bundled" / "java-runner"
+        inputs.extend(
+            [
+                ("java-pom", source / "pom.xml"),
+                ("java-source", source / "src" / "main"),
+            ]
+        )
+    return inputs
+
+
+def adapter_fingerprint(language: str, version: str) -> str:
+    """Hash the exact catalog, source, lock and local toolchain inputs.
+
+    Actions may use this value as a per-language/version cache suffix.  The
+    same helper is used by preparation, so a source or lock change cannot
+    accidentally reuse an old native artifact.
+    """
+    language = language.strip().lower()
+    version = version.strip().lstrip("v")
+    if language not in SUPPORTED or version not in SUPPORTED[language]:
+        raise PrepareError(f"unsupported adapter {language}@{version}")
+    root = _project_root()
+    digest = hashlib.sha256()
+    digest.update(f"{language}\0{version}\0".encode("utf-8"))
+    digest.update(_toolchain_fingerprint(language))
+    digest.update(
+        json.dumps(_catalog_record(root, language, version), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    )
+    digest.update(_fingerprint(_adapter_inputs(root, language, version)).encode("ascii"))
+    return digest.hexdigest()
 
 
 def _lock_dir(cache: Path, language: str, version: str) -> Path:
@@ -207,9 +339,7 @@ def _prepare_python(project_root: Path, cache: Path, version: str, offline: bool
     venv_dir = target / "venv"
     executable = _python_executable(venv_dir)
     lock = _python_lock(project_root, version)
-    fingerprint = _fingerprint(
-        [("python-lock", lock), ("python-interpreter", Path(sys.executable))]
-    )
+    fingerprint = adapter_fingerprint("python", version)
     adapter = project_root / "adapters" / "python_adapter.py"
     if not adapter.is_file():
         adapter = project_root / "tink_compat" / "adapters" / "python_adapter.py"
@@ -275,9 +405,7 @@ def _prepare_go(project_root: Path, cache: Path, version: str, offline: bool) ->
     binary = target / ("compat.exe" if os.name == "nt" else "compat")
     source = _go_source(project_root)
     lock = _go_lock(project_root, version)
-    fingerprint = _fingerprint(
-        [("go-source", source), ("go-mod", lock / "go.mod"), ("go-sum", lock / "go.sum")]
-    )
+    fingerprint = adapter_fingerprint("go", version)
     with _CacheLock(_lock_dir(cache, "go", version)):
         ready = binary.is_file() and _manifest_matches(target, fingerprint)
         if not ready:
@@ -287,28 +415,38 @@ def _prepare_go(project_root: Path, cache: Path, version: str, offline: bool) ->
             if not go:
                 raise PrepareError("Go is required to build the compatibility runner")
             target.mkdir(parents=True, exist_ok=True)
-            build = target / "source"
-            if build.exists():
-                shutil.rmtree(build)
-            if binary.exists():
-                binary.unlink()
-            _manifest_path(target).unlink(missing_ok=True)
-            shutil.copytree(source, build)
-            for name in ("go.mod", "go.sum"):
-                source = lock / name
-                if source.is_file():
-                    shutil.copy2(source, build / name)
-            download = _run([go, "mod", "download"], cwd=build)
-            if download.returncode != 0:
-                raise _failure(f"resolving Go {version} dependencies", download)
-            temp_binary = target / ("compat.tmp.exe" if os.name == "nt" else "compat.tmp")
-            result = _run([go, "build", "-mod=readonly", "-o", str(temp_binary), "."], cwd=build)
-            if result.returncode != 0:
-                raise _failure(f"building Go {version} compatibility runner", result)
-            temp_binary.replace(binary)
-            if os.name != "nt":
-                binary.chmod(binary.stat().st_mode | stat.S_IXUSR)
-            _write_manifest(target, fingerprint)
+            staging = Path(tempfile.mkdtemp(prefix=f"source-{version}-", dir=target))
+            temporary_binary: Path | None = None
+            try:
+                shutil.copytree(source, staging, dirs_exist_ok=True)
+                for name in ("go.mod", "go.sum"):
+                    lock_file = lock / name
+                    if lock_file.is_file():
+                        shutil.copy2(lock_file, staging / name)
+                download = _run([go, "mod", "download"], cwd=staging)
+                if download.returncode != 0:
+                    raise _failure(f"resolving Go {version} dependencies", download)
+                fd, temporary_name = tempfile.mkstemp(
+                    prefix="compat-", suffix=".exe" if os.name == "nt" else ".tmp", dir=target
+                )
+                os.close(fd)
+                temporary_binary = Path(temporary_name)
+                temporary_binary.unlink()
+                result = _run([go, "build", "-mod=readonly", "-o", str(temporary_binary), "."], cwd=staging)
+                if result.returncode != 0:
+                    raise _failure(f"building Go {version} compatibility runner", result)
+                temporary_binary.replace(binary)
+                temporary_binary = None
+                if os.name != "nt":
+                    binary.chmod(binary.stat().st_mode | stat.S_IXUSR)
+                _write_manifest(target, fingerprint)
+                # Older releases used a persistent source copy.  Native source
+                # is now disposable staging and should not inflate the cache.
+                shutil.rmtree(target / "source", ignore_errors=True)
+            finally:
+                if temporary_binary is not None:
+                    temporary_binary.unlink(missing_ok=True)
+                shutil.rmtree(staging, ignore_errors=True)
     return [str(binary)]
 
 
@@ -323,7 +461,11 @@ def _prepare_java(project_root: Path, cache: Path, version: str, offline: bool) 
         source = project_root / "_bundled" / "java-runner"
     pom = source / "pom.xml"
     java_sources = source / "src" / "main"
-    fingerprint = _fingerprint([("java-pom", pom), ("java-source", java_sources)])
+    java_record = _catalog_record(project_root, "java", version)
+    protobuf_version = java_record.get("protobuf")
+    if not isinstance(protobuf_version, str) or not protobuf_version:
+        raise PrepareError(f"catalog Java {version} entry has no protobuf version")
+    fingerprint = adapter_fingerprint("java", version)
     with _CacheLock(_lock_dir(cache, "java", version)):
         ready = jar.is_file() and _manifest_matches(target, fingerprint)
         if not ready:
@@ -332,29 +474,46 @@ def _prepare_java(project_root: Path, cache: Path, version: str, offline: bool) 
             if not pom.is_file() or not java_sources.is_dir():
                 raise PrepareError(f"Java runner source is missing: {source}")
             target.mkdir(parents=True, exist_ok=True)
-            build = target / "source"
-            if build.exists():
-                shutil.rmtree(build)
-            jar.unlink(missing_ok=True)
-            _manifest_path(target).unlink(missing_ok=True)
-            build.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(pom, build / "pom.xml")
-            shutil.copytree(java_sources, build / "src" / "main")
-            mvn = shutil.which("mvn") or shutil.which("mvn.cmd")
-            if not mvn:
-                raise PrepareError("Maven is required to build the Java compatibility runner")
-            args = [mvn, "-B", "-ntp", "-DskipTests", "-DcreateDependencyReducedPom=false", "package"]
-            if offline:
-                args.insert(3, "-o")
-            result = _run(args, cwd=build, offline=offline)
-            if result.returncode != 0:
-                raise _failure(f"building Java {version} compatibility runner", result)
-            built = build / "target" / jar.name
-            if not built.is_file():
-                raise PrepareError(f"Maven completed without producing {jar.name}")
-            jar.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(built, jar)
-            _write_manifest(target, fingerprint)
+            staging = Path(tempfile.mkdtemp(prefix=f"source-{version}-", dir=target))
+            temporary_jar: Path | None = None
+            try:
+                build = staging
+                shutil.copy2(pom, build / "pom.xml")
+                shutil.copytree(java_sources, build / "src" / "main")
+                mvn = shutil.which("mvn") or shutil.which("mvn.cmd")
+                if not mvn:
+                    raise PrepareError("Maven is required to build the Java compatibility runner")
+                args = [
+                    mvn,
+                    "-B",
+                    "-ntp",
+                    f"-Dtink.version={version}",
+                    f"-Dprotobuf.version={protobuf_version}",
+                    "-DskipTests",
+                    "-DcreateDependencyReducedPom=false",
+                    "package",
+                ]
+                if offline:
+                    args.insert(3, "-o")
+                result = _run(args, cwd=build, offline=offline)
+                if result.returncode != 0:
+                    raise _failure(f"building Java {version} compatibility runner", result)
+                built = build / "target" / jar.name
+                if not built.is_file():
+                    raise PrepareError(f"Maven completed without producing {jar.name}")
+                jar.parent.mkdir(parents=True, exist_ok=True)
+                fd, temporary_name = tempfile.mkstemp(prefix="tink-java-", suffix=".jar", dir=jar.parent)
+                os.close(fd)
+                temporary_jar = Path(temporary_name)
+                shutil.copy2(built, temporary_jar)
+                temporary_jar.replace(jar)
+                temporary_jar = None
+                _write_manifest(target, fingerprint)
+                shutil.rmtree(target / "source", ignore_errors=True)
+            finally:
+                if temporary_jar is not None:
+                    temporary_jar.unlink(missing_ok=True)
+                shutil.rmtree(staging, ignore_errors=True)
     return [java, "-jar", str(jar), "--compat"]
 
 
@@ -376,4 +535,4 @@ def prepare(language: str, version: str, cache: Path, *, offline: bool = False) 
     return _prepare_java(root, cache, version, offline)
 
 
-__all__ = ["PrepareError", "SUPPORTED", "prepare"]
+__all__ = ["PrepareError", "SUPPORTED", "adapter_fingerprint", "prepare"]

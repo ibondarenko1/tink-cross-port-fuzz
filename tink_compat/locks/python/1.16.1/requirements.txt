@@ -1,0 +1,6 @@
+# CPython 3.12 compatibility lock. Runtime dependencies were resolved from
+# the official PyPI tink 1.16.1 release on 2026-11-26.
+tink==1.16.1
+absl-py==2.5.1
+bazel-runfiles==2.5.1
+protobuf==7.36.2

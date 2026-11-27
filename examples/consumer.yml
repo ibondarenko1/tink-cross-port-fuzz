@@ -1,26 +1,26 @@
-name: Tink consumer compatibility
+name: Tink dependency upgrade
 
-on:
-  pull_request:
-  workflow_dispatch:
+on: pull_request
 
 permissions:
   contents: read
 
 jobs:
   compatibility:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Check pinned Tink versions
-        id: tink-compat
-        uses: ibondarenko1/tink-cross-port-fuzz@v0.1.0
+      - name: Compare the PR base and head
+        id: tink
+        uses: ibondarenko1/tink-cross-port-fuzz@v0.2.0
         with:
-          out: artifacts/tink-compat
-      - name: Publish compatibility report
+          python-lock: requirements.txt
+          go-module: .
+      - name: Save the full report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: tink-compat-report
-          path: artifacts/tink-compat/
+          name: tink-upgrade-report
+          path: |
+            ${{ steps.tink.outputs.report-json }}
+            ${{ steps.tink.outputs.report-md }}
           if-no-files-found: error

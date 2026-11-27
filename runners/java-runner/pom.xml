@@ -10,18 +10,20 @@
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <tink.version>1.24.0</tink.version>
+    <protobuf.version>4.33.6</protobuf.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>com.google.crypto.tink</groupId>
       <artifactId>tink</artifactId>
-      <version>1.18.0</version>
+      <version>${tink.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>4.28.3</version>
+      <version>${protobuf.version}</version>
     </dependency>
   </dependencies>
 
