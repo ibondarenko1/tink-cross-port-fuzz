@@ -78,11 +78,29 @@ def render(artifacts, destination, tag, expected_revision, *, versions_file=None
             scenario = f"{scenario} · {fields[-1]} signature"
         measured.append("<tr>" + "".join(cell(value) for value in (
             scenario, publisher, verifier, row["expected"], row["actual"], row["status"])) + "</tr>")
+    destination.mkdir(parents=True, exist_ok=True)
+    example_html = ""
+    example_source = TEMPLATES.parent / "examples/reports/billing-verifier-go-2.9.0.json"
+    if example_source.is_file():
+        example = json.loads(example_source.read_bytes())
+        if example["revision"] == revision:
+            from release_contract import validate_report
+            validate_report(example, revision, example["profile"])
+            shutil.copyfile(example_source, destination / "example-go-upgrade.json")
+            before = escape(example["profile"]["baseline"]["go"])
+            after = escape(example["profile"]["candidate"]["go"])
+            passed = int(example["summary"]["passed"])
+            example_html = (
+                "<section><h2>A dependency upgrade in a pull request</h2>"
+                f"<p>The billing example upgraded Tink Go from {before} to {after}. "
+                f"All {passed} project checks passed. The Go service also built and tested its selected version.</p>"
+                f'<p><a href="{REPO}/pull/3">Read the upgrade PR</a> &middot; '
+                '<a href="example-go-upgrade.json">Download the project report</a></p></section>'
+            )
     html = Template((TEMPLATES / "index.html").read_text(encoding="utf-8")).substitute(
-        repo=REPO, home=HOME + tag + "/" if permalink else HOME, tag=tag, decision=decision, history=history, commit=revision, short=revision[:8], verdict=expected,
+        repo=REPO, home=HOME + tag + "/" if permalink else HOME, tag=tag, decision=decision, history=history, example=example_html, commit=revision, short=revision[:8], verdict=expected,
         total=summary["total"], passed=counts["PASS"], failed=counts["FAIL"],
         incomplete=counts["INCOMPLETE"], versions="\n".join(versions), rows="\n".join(measured))
-    destination.mkdir(parents=True, exist_ok=True)
     (destination / "index.html").write_text(html, encoding="utf-8")
     shutil.copyfile(TEMPLATES / "style.css", destination / "style.css")
     for name in ("report.json", "report.md"):
