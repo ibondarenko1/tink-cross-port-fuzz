@@ -1,0 +1,56 @@
+name: Example service upgrade
+
+on:
+  pull_request:
+    paths:
+      - 'examples/services/**'
+      - '.github/workflows/example-upgrade.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  service-upgrade:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Compare the example services at both PR commits
+        id: tink
+        uses: ibondarenko1/tink-cross-port-fuzz@v0.2.0
+        with:
+          python-lock: examples/services/publisher/requirements.txt
+          go-module: examples/services/verifier
+      - name: Save project-bound results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: example-upgrade-report
+          path: |
+            ${{ steps.tink.outputs.report-json }}
+            ${{ steps.tink.outputs.report-md }}
+          if-no-files-found: error
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: source
+          persist-credentials: false
+      - name: Check the service build against the reported Go package
+        working-directory: source/examples/services/verifier
+        env:
+          REPORT: ${{ steps.tink.outputs.report-json }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          GOTOOLCHAIN: local
+        run: |
+          go test -mod=readonly ./...
+          selected=$(go list -mod=readonly -m -f '{{.Version}}' github.com/tink-crypto/tink-go/v2)
+          python -I - "$selected" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+
+          report = json.loads(Path(os.environ["REPORT"]).read_bytes())
+          for phase, revision in (("baseline", "BASE"), ("candidate", "HEAD")):
+              side = report["project"][phase]
+              assert side["revision_exact"] and side["revision"] == os.environ[revision]
+          go = report["attestations"]["candidate"]["go"]
+          assert go["status"] == "verified" and "v" + go["adapter_version"] == sys.argv[1]
+          PY

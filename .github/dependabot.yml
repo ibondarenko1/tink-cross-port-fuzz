@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /examples/services/publisher
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-name: tink
+  - package-ecosystem: gomod
+    directory: /examples/services/verifier
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-name: github.com/tink-crypto/tink-go/v2
+  - package-ecosystem: maven
+    directory: /runners/java-runner
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-name: com.google.crypto.tink:tink
